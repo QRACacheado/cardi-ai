@@ -32,6 +32,7 @@ export default function Home() {
   const [mealDescription, setMealDescription] = useState('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [userCurrency, setUserCurrency] = useState<string>('BRL');
+  const [isUpgradeDialogOpen, setIsUpgradeDialogOpen] = useState(false);
 
   // Dados do onboarding
   const [onboardingData, setOnboardingData] = useState({
@@ -703,6 +704,20 @@ export default function Home() {
     return userProfile.plan === 'premium' || userProfile.plan === 'elite';
   };
 
+  // Alterar plano do usuário
+  const handleChangePlan = (newPlan: 'essencial' | 'premium' | 'elite') => {
+    if (!userProfile) return;
+    
+    const updatedProfile: UserProfile = {
+      ...userProfile,
+      plan: newPlan,
+    };
+    
+    saveUserProfile(updatedProfile);
+    setUserProfile(updatedProfile);
+    setIsUpgradeDialogOpen(false);
+  };
+
   // Renderizar onboarding
   if (showOnboarding) {
     return (
@@ -1067,13 +1082,103 @@ export default function Home() {
                   <SelectItem value="de">🇩🇪 DE</SelectItem>
                 </SelectContent>
               </Select>
-              <Badge className={`bg-gradient-to-r ${PLANS.find(p => p.id === userProfile?.plan)?.color} h-9 px-3 flex items-center text-xs`}>
+              <Button
+                onClick={() => setIsUpgradeDialogOpen(true)}
+                className={`bg-gradient-to-r ${PLANS.find(p => p.id === userProfile?.plan)?.color} h-9 px-3 flex items-center text-xs`}
+              >
                 {PLANS.find(p => p.id === userProfile?.plan)?.name}
-              </Badge>
+              </Button>
             </div>
           </div>
         </div>
       </header>
+
+      {/* Dialog de Alteração de Plano */}
+      <Dialog open={isUpgradeDialogOpen} onOpenChange={setIsUpgradeDialogOpen}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle className="text-2xl">
+              {language === 'pt' ? 'Alterar Plano' :
+               language === 'en' ? 'Change Plan' :
+               language === 'nl' ? 'Plan Wijzigen' :
+               language === 'fr' ? 'Changer de Plan' :
+               'Plan Ändern'}
+            </DialogTitle>
+            <DialogDescription>
+              {language === 'pt' ? 'Escolha o plano que melhor atende suas necessidades' :
+               language === 'en' ? 'Choose the plan that best suits your needs' :
+               language === 'nl' ? 'Kies het plan dat het beste bij uw behoeften past' :
+               language === 'fr' ? 'Choisissez le plan qui correspond le mieux à vos besoins' :
+               'Wählen Sie den Plan, der Ihren Bedürfnissen am besten entspricht'}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            {PLANS.map((plan) => (
+              <div
+                key={plan.id}
+                onClick={() => handleChangePlan(plan.id)}
+                className={`relative cursor-pointer rounded-xl border-2 transition-all hover:shadow-lg ${
+                  userProfile?.plan === plan.id
+                    ? 'border-red-500 bg-red-50 shadow-lg'
+                    : 'border-gray-200 hover:border-gray-300'
+                } ${plan.highlighted ? 'ring-2 ring-purple-500 ring-offset-2' : ''}`}
+              >
+                {plan.highlighted && (
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                    <Badge className="bg-gradient-to-r from-purple-500 to-pink-600 text-white px-4">
+                      <Sparkles className="w-3 h-3 mr-1" />
+                      {t.onboarding.mostPopular}
+                    </Badge>
+                  </div>
+                )}
+
+                <div className="p-6 space-y-4">
+                  <div className="flex items-start justify-between">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        {plan.id === 'essencial' && <Shield className="w-5 h-5 text-gray-600" />}
+                        {plan.id === 'premium' && <Sparkles className="w-5 h-5 text-purple-600" />}
+                        {plan.id === 'elite' && <Crown className="w-5 h-5 text-amber-600" />}
+                        <h4 className="text-xl font-bold text-gray-900">{plan.name}</h4>
+                      </div>
+                      <p className="text-sm text-gray-600">{plan.tagline}</p>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-2xl font-bold text-gray-900">
+                        {plan.price === 0 ? t.common.free : formatPrice(plan.price)}
+                      </div>
+                      <div className="text-xs text-gray-600">{plan.period}</div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    {plan.features.map((feature, idx) => (
+                      <div key={idx} className="flex items-start gap-2 text-sm">
+                        <Check className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
+                        <span className="text-gray-700">{feature}</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  {userProfile?.plan === plan.id && (
+                    <div className="pt-2">
+                      <Badge className="bg-green-500 w-full justify-center py-2">
+                        <Check className="w-4 h-4 mr-1" />
+                        {language === 'pt' ? 'Plano Atual' :
+                         language === 'en' ? 'Current Plan' :
+                         language === 'nl' ? 'Huidig Plan' :
+                         language === 'fr' ? 'Plan Actuel' :
+                         'Aktueller Plan'}
+                      </Badge>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Main Content */}
       <main className="container mx-auto px-4 py-6 max-w-6xl">
@@ -1392,14 +1497,29 @@ export default function Home() {
                 <CardContent className="flex flex-col items-center justify-center py-12">
                   <Crown className="w-16 h-16 text-purple-500 mb-4" />
                   <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                    Recurso Premium
+                    {language === 'pt' ? 'Recurso Premium' :
+                     language === 'en' ? 'Premium Feature' :
+                     language === 'nl' ? 'Premium Functie' :
+                     language === 'fr' ? 'Fonctionnalité Premium' :
+                     'Premium-Funktion'}
                   </h3>
                   <p className="text-gray-600 text-center mb-4">
-                    Faça upgrade para acessar exercícios personalizados
+                    {language === 'pt' ? 'Faça upgrade para acessar exercícios personalizados' :
+                     language === 'en' ? 'Upgrade to access personalized exercises' :
+                     language === 'nl' ? 'Upgrade om toegang te krijgen tot gepersonaliseerde oefeningen' :
+                     language === 'fr' ? 'Mettez à niveau pour accéder aux exercices personnalisés' :
+                     'Upgrade für personalisierten Übungszugang'}
                   </p>
-                  <Button className="bg-gradient-to-r from-purple-500 to-pink-600">
+                  <Button 
+                    onClick={() => setIsUpgradeDialogOpen(true)}
+                    className="bg-gradient-to-r from-purple-500 to-pink-600"
+                  >
                     <Crown className="w-4 h-4 mr-2" />
-                    Fazer Upgrade
+                    {language === 'pt' ? 'Fazer Upgrade' :
+                     language === 'en' ? 'Upgrade Now' :
+                     language === 'nl' ? 'Nu Upgraden' :
+                     language === 'fr' ? 'Mettre à Niveau' :
+                     'Jetzt Upgraden'}
                   </Button>
                 </CardContent>
               </Card>
@@ -1473,21 +1593,36 @@ export default function Home() {
             )}
           </TabsContent>
 
-          {/* Diet Tab - MELHORADO */}
+          {/* Diet Tab */}
           <TabsContent value="diet" className="space-y-6">
             {!hasFeatureAccess('diet') ? (
               <Card className="border-2 border-purple-200 bg-gradient-to-br from-purple-50 to-pink-50">
                 <CardContent className="flex flex-col items-center justify-center py-12">
                   <Crown className="w-16 h-16 text-purple-500 mb-4" />
                   <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                    Recurso Premium
+                    {language === 'pt' ? 'Recurso Premium' :
+                     language === 'en' ? 'Premium Feature' :
+                     language === 'nl' ? 'Premium Functie' :
+                     language === 'fr' ? 'Fonctionnalité Premium' :
+                     'Premium-Funktion'}
                   </h3>
                   <p className="text-gray-600 text-center mb-4">
-                    Faça upgrade para acessar plano de dieta personalizado
+                    {language === 'pt' ? 'Faça upgrade para acessar plano de dieta personalizado' :
+                     language === 'en' ? 'Upgrade to access personalized diet plan' :
+                     language === 'nl' ? 'Upgrade om toegang te krijgen tot gepersonaliseerd dieetplan' :
+                     language === 'fr' ? 'Mettez à niveau pour accéder au plan alimentaire personnalisé' :
+                     'Upgrade für personalisierten Ernährungsplan'}
                   </p>
-                  <Button className="bg-gradient-to-r from-purple-500 to-pink-600">
+                  <Button 
+                    onClick={() => setIsUpgradeDialogOpen(true)}
+                    className="bg-gradient-to-r from-purple-500 to-pink-600"
+                  >
                     <Crown className="w-4 h-4 mr-2" />
-                    Fazer Upgrade
+                    {language === 'pt' ? 'Fazer Upgrade' :
+                     language === 'en' ? 'Upgrade Now' :
+                     language === 'nl' ? 'Nu Upgraden' :
+                     language === 'fr' ? 'Mettre à Niveau' :
+                     'Jetzt Upgraden'}
                   </Button>
                 </CardContent>
               </Card>
@@ -1782,21 +1917,36 @@ export default function Home() {
             )}
           </TabsContent>
 
-          {/* Coach Tab - CORRIGIDO */}
+          {/* Coach Tab */}
           <TabsContent value="coach" className="space-y-6">
             {!hasFeatureAccess('coach') ? (
               <Card className="border-2 border-purple-200 bg-gradient-to-br from-purple-50 to-pink-50">
                 <CardContent className="flex flex-col items-center justify-center py-12">
                   <Crown className="w-16 h-16 text-purple-500 mb-4" />
                   <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                    Recurso Premium
+                    {language === 'pt' ? 'Recurso Premium' :
+                     language === 'en' ? 'Premium Feature' :
+                     language === 'nl' ? 'Premium Functie' :
+                     language === 'fr' ? 'Fonctionnalité Premium' :
+                     'Premium-Funktion'}
                   </h3>
                   <p className="text-gray-600 text-center mb-4">
-                    Faça upgrade para conversar com seu Coach AI
+                    {language === 'pt' ? 'Faça upgrade para conversar com seu Coach AI' :
+                     language === 'en' ? 'Upgrade to chat with your AI Coach' :
+                     language === 'nl' ? 'Upgrade om te chatten met uw AI Coach' :
+                     language === 'fr' ? 'Mettez à niveau pour discuter avec votre Coach IA' :
+                     'Upgrade um mit Ihrem KI-Coach zu chatten'}
                   </p>
-                  <Button className="bg-gradient-to-r from-purple-500 to-pink-600">
+                  <Button 
+                    onClick={() => setIsUpgradeDialogOpen(true)}
+                    className="bg-gradient-to-r from-purple-500 to-pink-600"
+                  >
                     <Crown className="w-4 h-4 mr-2" />
-                    Fazer Upgrade
+                    {language === 'pt' ? 'Fazer Upgrade' :
+                     language === 'en' ? 'Upgrade Now' :
+                     language === 'nl' ? 'Nu Upgraden' :
+                     language === 'fr' ? 'Mettre à Niveau' :
+                     'Jetzt Upgraden'}
                   </Button>
                 </CardContent>
               </Card>
@@ -1807,7 +1957,7 @@ export default function Home() {
                   <p className="text-gray-600">{t.coach.subtitle}</p>
                 </div>
 
-                {/* DICAS DO COACH - AGORA MOSTRANDO CORRETAMENTE */}
+                {/* DICAS DO COACH */}
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                   {coachTips.map((tip) => (
                     <Card key={tip.id} className="hover:shadow-lg transition-shadow border-2 border-purple-100">
@@ -1825,7 +1975,13 @@ export default function Home() {
                         <div className="pt-3 border-t border-purple-100 bg-purple-50 rounded-lg p-3 -mx-3">
                           <p className="text-xs font-medium text-purple-900">
                             <span className="text-base mr-1">💡</span>
-                            <strong>Dica:</strong> {tip.dica}
+                            <strong>
+                              {language === 'pt' ? 'Dica' :
+                               language === 'en' ? 'Tip' :
+                               language === 'nl' ? 'Tip' :
+                               language === 'fr' ? 'Conseil' :
+                               'Tipp'}:
+                            </strong> {tip.dica}
                           </p>
                         </div>
                       </CardContent>

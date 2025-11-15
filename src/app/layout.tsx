@@ -17,8 +17,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Cardio AI - Seu Companheiro de Saúde Cardíaca",
-  description: "Gerencie seus medicamentos, exercícios e dieta com inteligência artificial",
+  title: "Cardi - AI",
+  description: "Seu companheiro inteligente de saúde cardíaca",
 };
 
 export default function RootLayout({
