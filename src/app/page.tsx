@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Heart, Pill, Activity, Utensils, MessageCircle, Plus, Check, Clock, ChevronRight, ChevronLeft, Sparkles, Crown, Shield, Dumbbell, Timer, Target, Send, Apple, Salad, Coffee, Moon, Globe, TrendingUp, TrendingDown, Minus, Trash2, Star } from 'lucide-react';
+import { Heart, Pill, Activity, Utensils, MessageCircle, Plus, Check, Clock, ChevronRight, ChevronLeft, Sparkles, Crown, Shield, Dumbbell, Timer, Target, Send, Apple, Salad, Coffee, Moon, Globe, TrendingUp, TrendingDown, Minus, Trash2, Star, Bell, BellOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -16,6 +16,214 @@ import { getMedications, saveMedications, getUserProfile, saveUserProfile, isOnb
 import { useLanguage } from '@/hooks/useLanguage';
 import { Language } from '@/lib/i18n';
 import { formatPrice, detectCurrency, getCurrencyInfo } from '@/lib/pricing';
+
+// Sistema de análise inteligente de mensagens do Coach AI - VERSÃO MELHORADA
+const generateCoachResponse = (
+  message: string, 
+  userProfile: UserProfile | null, 
+  language: Language,
+  medications: Medication[]
+) => {
+  const lowerMessage = message.toLowerCase();
+  
+  // Extrair informações do perfil
+  const age = userProfile?.age || 0;
+  const weight = userProfile?.weight || 0;
+  const height = userProfile?.height || 0;
+  const imc = weight && height ? weight / Math.pow(height / 100, 2) : 0;
+  const medCount = medications.length;
+  
+  // Detectar tipo de pergunta
+  const isQuestion = lowerMessage.includes('?') || 
+                     lowerMessage.match(/^(como|quando|onde|por que|o que|qual|posso|devo|preciso|quantos|quanto|how|when|where|why|what|which|can|should|need|many|much|hoe|wanneer|waar|waarom|wat|hoeveel|comment|quand|où|pourquoi|quoi|combien|wie|wann|wo|warum|was|wieviel)/);
+
+  // Respostas baseadas em palavras-chave ESPECÍFICAS
+  
+  // Perguntas sobre IDADE
+  if (lowerMessage.match(/(quantos anos|minha idade|tenho.*anos|idade|age|years old|leeftijd|jaar|âge|ans|alter|jahre)/)) {
+    if (!userProfile) {
+      return language === 'pt' ? 'Não tenho seu perfil completo ainda. Configure seus dados pessoais para eu poder te ajudar melhor!' :
+             language === 'en' ? 'I don\'t have your complete profile yet. Set up your personal data so I can help you better!' :
+             language === 'nl' ? 'Ik heb uw volledige profiel nog niet. Stel uw persoonlijke gegevens in zodat ik u beter kan helpen!' :
+             language === 'fr' ? 'Je n\'ai pas encore votre profil complet. Configurez vos données personnelles pour que je puisse mieux vous aider!' :
+             'Ich habe Ihr vollständiges Profil noch nicht. Richten Sie Ihre persönlichen Daten ein, damit ich Ihnen besser helfen kann!';
+    }
+    return language === 'pt' ? `Você tem ${age} anos. ${age > 60 ? 'Na sua idade, é importante manter exercícios leves e consultas médicas regulares.' : age > 40 ? 'Você está em uma ótima fase para prevenir problemas cardíacos com hábitos saudáveis.' : 'Você é jovem! Aproveite para criar hábitos saudáveis desde já.'}` :
+           language === 'en' ? `You are ${age} years old. ${age > 60 ? 'At your age, it\'s important to maintain light exercises and regular medical check-ups.' : age > 40 ? 'You\'re at a great stage to prevent heart problems with healthy habits.' : 'You\'re young! Take advantage to create healthy habits now.'}` :
+           language === 'nl' ? `U bent ${age} jaar oud. ${age > 60 ? 'Op uw leeftijd is het belangrijk om lichte oefeningen en regelmatige medische controles te handhaven.' : age > 40 ? 'U bent in een geweldige fase om hartproblemen te voorkomen met gezonde gewoonten.' : 'U bent jong! Profiteer ervan om nu gezonde gewoonten te creëren.'}` :
+           language === 'fr' ? `Vous avez ${age} ans. ${age > 60 ? 'À votre âge, il est important de maintenir des exercices légers et des contrôles médicaux réguliers.' : age > 40 ? 'Vous êtes à un stade idéal pour prévenir les problèmes cardiaques avec des habitudes saines.' : 'Vous êtes jeune! Profitez-en pour créer des habitudes saines dès maintenant.'}` :
+           `Sie sind ${age} Jahre alt. ${age > 60 ? 'In Ihrem Alter ist es wichtig, leichte Übungen und regelmäßige medizinische Untersuchungen beizubehalten.' : age > 40 ? 'Sie sind in einer großartigen Phase, um Herzprobleme mit gesunden Gewohnheiten zu verhindern.' : 'Sie sind jung! Nutzen Sie die Gelegenheit, jetzt gesunde Gewohnheiten zu schaffen.'}`;
+  }
+
+  // Perguntas sobre PESO
+  if (lowerMessage.match(/(quanto peso|meu peso|peso.*kg|weight|gewicht|poids|gewicht)/)) {
+    if (!userProfile) {
+      return language === 'pt' ? 'Configure seu perfil primeiro para eu saber seu peso e te dar orientações personalizadas!' :
+             language === 'en' ? 'Set up your profile first so I know your weight and can give you personalized guidance!' :
+             language === 'nl' ? 'Stel eerst uw profiel in zodat ik uw gewicht ken en u gepersonaliseerde begeleiding kan geven!' :
+             language === 'fr' ? 'Configurez d\'abord votre profil pour que je connaisse votre poids et puisse vous donner des conseils personnalisés!' :
+             'Richten Sie zuerst Ihr Profil ein, damit ich Ihr Gewicht kenne und Ihnen personalisierte Anleitung geben kann!';
+    }
+    return language === 'pt' ? `Você pesa ${weight}kg. Seu IMC é ${imc.toFixed(1)}, o que ${imc > 25 ? 'indica sobrepeso - recomendo focar em dieta balanceada e exercícios leves' : imc < 18.5 ? 'indica baixo peso - consulte um nutricionista' : 'está na faixa saudável! Continue assim'}.` :
+           language === 'en' ? `You weigh ${weight}kg. Your BMI is ${imc.toFixed(1)}, which ${imc > 25 ? 'indicates overweight - I recommend focusing on balanced diet and light exercises' : imc < 18.5 ? 'indicates underweight - consult a nutritionist' : 'is in the healthy range! Keep it up'}.` :
+           language === 'nl' ? `U weegt ${weight}kg. Uw BMI is ${imc.toFixed(1)}, wat ${imc > 25 ? 'overgewicht aangeeft - ik raad aan te focussen op een evenwichtig dieet en lichte oefeningen' : imc < 18.5 ? 'ondergewicht aangeeft - raadpleeg een voedingsdeskundige' : 'in het gezonde bereik ligt! Ga zo door'}.` :
+           language === 'fr' ? `Vous pesez ${weight}kg. Votre IMC est ${imc.toFixed(1)}, ce qui ${imc > 25 ? 'indique un surpoids - je recommande de se concentrer sur un régime équilibré et des exercices légers' : imc < 18.5 ? 'indique une insuffisance pondérale - consultez un nutritionniste' : 'est dans la plage saine! Continuez comme ça'}.` :
+           `Sie wiegen ${weight}kg. Ihr BMI ist ${imc.toFixed(1)}, was ${imc > 25 ? 'Übergewicht anzeigt - ich empfehle, sich auf eine ausgewogene Ernährung und leichte Übungen zu konzentrieren' : imc < 18.5 ? 'Untergewicht anzeigt - konsultieren Sie einen Ernährungsberater' : 'im gesunden Bereich liegt! Machen Sie weiter so'}.`;
+  }
+
+  // Perguntas sobre MEDICAMENTOS
+  if (lowerMessage.match(/(quantos.*medicamento|remédio|medication|medicijn|médicament|medikament|tomo|taking)/)) {
+    if (medCount === 0) {
+      return language === 'pt' ? 'Você ainda não cadastrou nenhum medicamento. Vá na aba Medicamentos para adicionar seus remédios e receber lembretes!' :
+             language === 'en' ? 'You haven\'t registered any medications yet. Go to the Medications tab to add your medicines and receive reminders!' :
+             language === 'nl' ? 'U heeft nog geen medicijnen geregistreerd. Ga naar het tabblad Medicijnen om uw medicijnen toe te voegen en herinneringen te ontvangen!' :
+             language === 'fr' ? 'Vous n\'avez pas encore enregistré de médicaments. Allez dans l\'onglet Médicaments pour ajouter vos médicaments et recevoir des rappels!' :
+             'Sie haben noch keine Medikamente registriert. Gehen Sie zum Tab Medikamente, um Ihre Medikamente hinzuzufügen und Erinnerungen zu erhalten!';
+    }
+    const medList = medications.map(m => m.name).join(', ');
+    return language === 'pt' ? `Você está tomando ${medCount} medicamento(s): ${medList}. ${medCount > 3 ? 'São vários medicamentos - não esqueça de tomar todos nos horários corretos!' : 'Lembre-se de tomar sempre nos horários prescritos.'}` :
+           language === 'en' ? `You are taking ${medCount} medication(s): ${medList}. ${medCount > 3 ? 'That\'s several medications - don\'t forget to take them all at the correct times!' : 'Remember to always take them at prescribed times.'}` :
+           language === 'nl' ? `U neemt ${medCount} medicijn(en): ${medList}. ${medCount > 3 ? 'Dat zijn verschillende medicijnen - vergeet niet ze allemaal op de juiste tijden in te nemen!' : 'Vergeet niet ze altijd op voorgeschreven tijden in te nemen.'}` :
+           language === 'fr' ? `Vous prenez ${medCount} médicament(s): ${medList}. ${medCount > 3 ? 'Ce sont plusieurs médicaments - n\'oubliez pas de tous les prendre aux heures correctes!' : 'N\'oubliez pas de toujours les prendre aux heures prescrites.'}` :
+           `Sie nehmen ${medCount} Medikament(e): ${medList}. ${medCount > 3 ? 'Das sind mehrere Medikamente - vergessen Sie nicht, sie alle zu den richtigen Zeiten einzunehmen!' : 'Denken Sie daran, sie immer zu den verschriebenen Zeiten einzunehmen.'}`;
+  }
+
+  // Perguntas sobre EXERCÍCIOS
+  if (lowerMessage.match(/(exercício|atividade|treino|caminhar|correr|exercise|workout|walk|run|oefening|training|exercice|entraînement|übung|training)/)) {
+    if (!userProfile) {
+      return language === 'pt' ? 'Configure seu perfil para eu recomendar exercícios personalizados para você!' :
+             language === 'en' ? 'Set up your profile so I can recommend personalized exercises for you!' :
+             language === 'nl' ? 'Stel uw profiel in zodat ik gepersonaliseerde oefeningen voor u kan aanbevelen!' :
+             language === 'fr' ? 'Configurez votre profil pour que je puisse recommander des exercices personnalisés pour vous!' :
+             'Richten Sie Ihr Profil ein, damit ich personalisierte Übungen für Sie empfehlen kann!';
+    }
+    return language === 'pt' ? `Para você (${age} anos, ${weight}kg), recomendo: ${age > 60 ? 'caminhadas leves de 15-20 minutos, alongamentos e exercícios respiratórios' : imc > 25 ? 'caminhadas de 30 minutos, natação leve e bicicleta ergométrica' : 'caminhadas de 30-40 minutos, natação e exercícios aeróbicos leves'}. Sempre comece devagar e aumente gradualmente!` :
+           language === 'en' ? `For you (${age} years, ${weight}kg), I recommend: ${age > 60 ? 'light walks of 15-20 minutes, stretching and breathing exercises' : imc > 25 ? '30-minute walks, light swimming and stationary bike' : '30-40 minute walks, swimming and light aerobic exercises'}. Always start slowly and gradually increase!` :
+           language === 'nl' ? `Voor u (${age} jaar, ${weight}kg) raad ik aan: ${age > 60 ? 'lichte wandelingen van 15-20 minuten, stretching en ademhalingsoefeningen' : imc > 25 ? '30 minuten wandelen, licht zwemmen en hometrainer' : '30-40 minuten wandelen, zwemmen en lichte aerobe oefeningen'}. Begin altijd langzaam en verhoog geleidelijk!` :
+           language === 'fr' ? `Pour vous (${age} ans, ${weight}kg), je recommande: ${age > 60 ? 'marches légères de 15-20 minutes, étirements et exercices respiratoires' : imc > 25 ? 'marches de 30 minutes, natation légère et vélo stationnaire' : 'marches de 30-40 minutes, natation et exercices aérobiques légers'}. Commencez toujours lentement et augmentez progressivement!` :
+           `Für Sie (${age} Jahre, ${weight}kg) empfehle ich: ${age > 60 ? 'leichte Spaziergänge von 15-20 Minuten, Dehnübungen und Atemübungen' : imc > 25 ? '30-minütige Spaziergänge, leichtes Schwimmen und Heimtrainer' : '30-40-minütige Spaziergänge, Schwimmen und leichte aerobe Übungen'}. Beginnen Sie immer langsam und steigern Sie allmählich!`;
+  }
+
+  // Perguntas sobre ALIMENTAÇÃO/DIETA
+  if (lowerMessage.match(/(comer|comida|dieta|alimentação|calorias|diet|food|meal|eat|nutrition|eten|voeding|nourriture|régime|essen|ernährung)/)) {
+    if (!userProfile) {
+      return language === 'pt' ? 'Configure seu perfil para eu calcular suas necessidades calóricas e recomendar uma dieta personalizada!' :
+             language === 'en' ? 'Set up your profile so I can calculate your caloric needs and recommend a personalized diet!' :
+             language === 'nl' ? 'Stel uw profiel in zodat ik uw calorische behoeften kan berekenen en een gepersonaliseerd dieet kan aanbevelen!' :
+             language === 'fr' ? 'Configurez votre profil pour que je puisse calculer vos besoins caloriques et recommander un régime personnalisé!' :
+             'Richten Sie Ihr Profil ein, damit ich Ihren Kalorienbedarf berechnen und eine personalisierte Ernährung empfehlen kann!';
+    }
+    const tmb = 10 * weight + 6.25 * height - 5 * age + 5;
+    const calorias = Math.round(tmb * 1.3);
+    return language === 'pt' ? `Para você, recomendo cerca de ${calorias} calorias por dia. Foque em: vegetais verdes, proteínas magras (frango, peixe), grãos integrais, frutas e MUITA água. Evite: sal em excesso, frituras, gorduras saturadas e açúcar. ${imc > 25 ? 'Como você está acima do peso, tente reduzir 300-500 calorias por dia para perder peso gradualmente.' : 'Mantenha essa alimentação balanceada!'}` :
+           language === 'en' ? `For you, I recommend about ${calorias} calories per day. Focus on: green vegetables, lean proteins (chicken, fish), whole grains, fruits and LOTS of water. Avoid: excess salt, fried foods, saturated fats and sugar. ${imc > 25 ? 'Since you\'re overweight, try reducing 300-500 calories per day to lose weight gradually.' : 'Maintain this balanced diet!'}` :
+           language === 'nl' ? `Voor u raad ik ongeveer ${calorias} calorieën per dag aan. Focus op: groene groenten, magere eiwitten (kip, vis), volkoren granen, fruit en VEEL water. Vermijd: overmatig zout, gefrituurde gerechten, verzadigde vetten en suiker. ${imc > 25 ? 'Omdat u overgewicht heeft, probeer 300-500 calorieën per dag te verminderen om geleidelijk gewicht te verliezen.' : 'Handhaaf dit evenwichtige dieet!'}` :
+           language === 'fr' ? `Pour vous, je recommande environ ${calorias} calories par jour. Concentrez-vous sur: légumes verts, protéines maigres (poulet, poisson), grains entiers, fruits et BEAUCOUP d'eau. Évitez: excès de sel, fritures, graisses saturées et sucre. ${imc > 25 ? 'Comme vous êtes en surpoids, essayez de réduire 300-500 calories par jour pour perdre du poids progressivement.' : 'Maintenez ce régime équilibré!'}` :
+           `Für Sie empfehle ich etwa ${calorias} Kalorien pro Tag. Konzentrieren Sie sich auf: grünes Gemüse, mageres Protein (Hähnchen, Fisch), Vollkornprodukte, Obst und VIEL Wasser. Vermeiden Sie: übermäßiges Salz, frittierte Speisen, gesättigte Fette und Zucker. ${imc > 25 ? 'Da Sie übergewichtig sind, versuchen Sie, 300-500 Kalorien pro Tag zu reduzieren, um allmählich Gewicht zu verlieren.' : 'Halten Sie diese ausgewogene Ernährung bei!'}`;
+  }
+
+  // Perguntas sobre SAÚDE/CORAÇÃO
+  if (lowerMessage.match(/(saúde|coração|pressão|batimento|health|heart|pressure|beat|gezondheid|hart|druk|santé|cœur|pression|gesundheit|herz|druck)/)) {
+    return language === 'pt' ? `Sua saúde cardíaca depende de 4 pilares: 1) Medicação regular (você tem ${medCount} medicamento(s) - tome sempre!), 2) Exercícios leves diários, 3) Alimentação balanceada, 4) Controle do estresse. ${imc > 25 ? 'Perder peso ajudará muito seu coração!' : 'Continue cuidando bem de você!'} Faça check-ups regulares com seu médico.` :
+           language === 'en' ? `Your heart health depends on 4 pillars: 1) Regular medication (you have ${medCount} medication(s) - always take them!), 2) Daily light exercises, 3) Balanced diet, 4) Stress control. ${imc > 25 ? 'Losing weight will help your heart a lot!' : 'Keep taking good care of yourself!'} Have regular check-ups with your doctor.` :
+           language === 'nl' ? `Uw hartgezondheid hangt af van 4 pijlers: 1) Regelmatige medicatie (u heeft ${medCount} medicijn(en) - neem ze altijd!), 2) Dagelijkse lichte oefeningen, 3) Evenwichtig dieet, 4) Stressbeheersing. ${imc > 25 ? 'Gewicht verliezen zal uw hart veel helpen!' : 'Blijf goed voor uzelf zorgen!'} Heb regelmatige controles bij uw arts.` :
+           language === 'fr' ? `Votre santé cardiaque dépend de 4 piliers: 1) Médicaments réguliers (vous avez ${medCount} médicament(s) - prenez-les toujours!), 2) Exercices légers quotidiens, 3) Régime équilibré, 4) Contrôle du stress. ${imc > 25 ? 'Perdre du poids aidera beaucoup votre cœur!' : 'Continuez à bien prendre soin de vous!'} Faites des contrôles réguliers avec votre médecin.` :
+           `Ihre Herzgesundheit hängt von 4 Säulen ab: 1) Regelmäßige Medikation (Sie haben ${medCount} Medikament(e) - nehmen Sie sie immer!), 2) Tägliche leichte Übungen, 3) Ausgewogene Ernährung, 4) Stressbewältigung. ${imc > 25 ? 'Gewicht zu verlieren wird Ihrem Herzen sehr helfen!' : 'Kümmern Sie sich weiterhin gut um sich!'} Haben Sie regelmäßige Untersuchungen bei Ihrem Arzt.`;
+  }
+
+  // Perguntas sobre MOTIVAÇÃO/ÂNIMO
+  if (lowerMessage.match(/(cansado|desânimo|difícil|não consigo|tired|difficult|can't|moe|moeilijk|kan niet|fatigué|difficile|ne peux pas|müde|schwierig|kann nicht)/)) {
+    return language === 'pt' ? `Eu entendo que pode ser difícil às vezes. Mas olhe o quanto você já conquistou: você está aqui, cuidando da sua saúde, ${medCount > 0 ? `gerenciando ${medCount} medicamento(s)` : 'buscando melhorar'}! Isso já é INCRÍVEL! 💪 Não desista. Comece pequeno hoje: apenas tome seus medicamentos e dê uma caminhada de 10 minutos. Amanhã será mais fácil. Você é mais forte do que pensa! ❤️` :
+           language === 'en' ? `I understand it can be difficult sometimes. But look how much you've already achieved: you're here, taking care of your health, ${medCount > 0 ? `managing ${medCount} medication(s)` : 'seeking to improve'}! That's already AMAZING! 💪 Don't give up. Start small today: just take your medications and take a 10-minute walk. Tomorrow will be easier. You're stronger than you think! ❤️` :
+           language === 'nl' ? `Ik begrijp dat het soms moeilijk kan zijn. Maar kijk hoeveel u al heeft bereikt: u bent hier, zorgt voor uw gezondheid, ${medCount > 0 ? `beheert ${medCount} medicijn(en)` : 'probeert te verbeteren'}! Dat is al GEWELDIG! 💪 Geef niet op. Begin vandaag klein: neem gewoon uw medicijnen en maak een wandeling van 10 minuten. Morgen wordt het makkelijker. U bent sterker dan u denkt! ❤️` :
+           language === 'fr' ? `Je comprends que cela peut être difficile parfois. Mais regardez combien vous avez déjà accompli: vous êtes ici, prenant soin de votre santé, ${medCount > 0 ? `gérant ${medCount} médicament(s)` : 'cherchant à améliorer'}! C'est déjà INCROYABLE! 💪 N'abandonnez pas. Commencez petit aujourd'hui: prenez simplement vos médicaments et faites une promenade de 10 minutes. Demain sera plus facile. Vous êtes plus fort que vous ne le pensez! ❤️` :
+           `Ich verstehe, dass es manchmal schwierig sein kann. Aber schauen Sie, wie viel Sie bereits erreicht haben: Sie sind hier, kümmern sich um Ihre Gesundheit, ${medCount > 0 ? `verwalten ${medCount} Medikament(e)` : 'versuchen sich zu verbessern'}! Das ist bereits ERSTAUNLICH! 💪 Geben Sie nicht auf. Fangen Sie heute klein an: Nehmen Sie einfach Ihre Medikamente und machen Sie einen 10-minütigen Spaziergang. Morgen wird es einfacher sein. Sie sind stärker als Sie denken! ❤️`;
+  }
+
+  // Resposta padrão para perguntas gerais
+  if (isQuestion) {
+    return language === 'pt' ? `Ótima pergunta! ${userProfile ? `Com base no seu perfil (${age} anos, ${weight}kg, ${medCount} medicamento(s))` : 'Configure seu perfil para respostas mais personalizadas'}, posso te ajudar com: medicamentos, exercícios, dieta, saúde cardíaca ou motivação. Seja mais específico na sua pergunta para eu te dar uma resposta melhor! Por exemplo: "Quantos medicamentos eu tomo?" ou "Que exercícios devo fazer?"` :
+           language === 'en' ? `Great question! ${userProfile ? `Based on your profile (${age} years, ${weight}kg, ${medCount} medication(s))` : 'Set up your profile for more personalized answers'}, I can help you with: medications, exercises, diet, heart health or motivation. Be more specific in your question so I can give you a better answer! For example: "How many medications do I take?" or "What exercises should I do?"` :
+           language === 'nl' ? `Goede vraag! ${userProfile ? `Op basis van uw profiel (${age} jaar, ${weight}kg, ${medCount} medicijn(en))` : 'Stel uw profiel in voor meer gepersonaliseerde antwoorden'}, kan ik u helpen met: medicijnen, oefeningen, dieet, hartgezondheid of motivatie. Wees specifieker in uw vraag zodat ik u een beter antwoord kan geven! Bijvoorbeeld: "Hoeveel medicijnen neem ik?" of "Welke oefeningen moet ik doen?"` :
+           language === 'fr' ? `Excellente question! ${userProfile ? `En fonction de votre profil (${age} ans, ${weight}kg, ${medCount} médicament(s))` : 'Configurez votre profil pour des réponses plus personnalisées'}, je peux vous aider avec: médicaments, exercices, régime, santé cardiaque ou motivation. Soyez plus précis dans votre question pour que je puisse vous donner une meilleure réponse! Par exemple: "Combien de médicaments je prends?" ou "Quels exercices dois-je faire?"` :
+           `Gute Frage! ${userProfile ? `Basierend auf Ihrem Profil (${age} Jahre, ${weight}kg, ${medCount} Medikament(e))` : 'Richten Sie Ihr Profil für personalisiertere Antworten ein'}, kann ich Ihnen helfen mit: Medikamenten, Übungen, Ernährung, Herzgesundheit oder Motivation. Seien Sie spezifischer in Ihrer Frage, damit ich Ihnen eine bessere Antwort geben kann! Zum Beispiel: "Wie viele Medikamente nehme ich?" oder "Welche Übungen sollte ich machen?"`;
+  }
+
+  // Resposta para afirmações (não perguntas)
+  return language === 'pt' ? `Entendi! ${userProfile ? `Vejo que você tem ${age} anos e está gerenciando ${medCount} medicamento(s).` : 'Configure seu perfil para eu te conhecer melhor!'} Como posso te ajudar especificamente? Pergunte sobre seus medicamentos, exercícios recomendados, dieta ideal, ou qualquer dúvida sobre saúde cardíaca. Estou aqui para te apoiar! 💙` :
+         language === 'en' ? `I understand! ${userProfile ? `I see you're ${age} years old and managing ${medCount} medication(s).` : 'Set up your profile so I can get to know you better!'} How can I help you specifically? Ask about your medications, recommended exercises, ideal diet, or any questions about heart health. I'm here to support you! 💙` :
+         language === 'nl' ? `Ik begrijp het! ${userProfile ? `Ik zie dat u ${age} jaar oud bent en ${medCount} medicijn(en) beheert.` : 'Stel uw profiel in zodat ik u beter kan leren kennen!'} Hoe kan ik u specifiek helpen? Vraag over uw medicijnen, aanbevolen oefeningen, ideaal dieet, of vragen over hartgezondheid. Ik ben hier om u te ondersteunen! 💙` :
+         language === 'fr' ? `Je comprends! ${userProfile ? `Je vois que vous avez ${age} ans et gérez ${medCount} médicament(s).` : 'Configurez votre profil pour que je puisse mieux vous connaître!'} Comment puis-je vous aider spécifiquement? Posez des questions sur vos médicaments, exercices recommandés, régime idéal, ou toute question sur la santé cardiaque. Je suis là pour vous soutenir! 💙` :
+         `Ich verstehe! ${userProfile ? `Ich sehe, Sie sind ${age} Jahre alt und verwalten ${medCount} Medikament(e).` : 'Richten Sie Ihr Profil ein, damit ich Sie besser kennenlernen kann!'} Wie kann ich Ihnen speziell helfen? Fragen Sie nach Ihren Medikamenten, empfohlenen Übungen, idealer Ernährung oder Fragen zur Herzgesundheit. Ich bin hier, um Sie zu unterstützen! 💙`;
+};
+
+// Mensagens motivacionais para notificações de medicamentos
+const getMedicationNotificationMessages = (language: Language): string[] => {
+  const messages: Record<Language, string[]> = {
+    pt: [
+      '💊 Hora do remédio! Seu coração agradece por cuidar tão bem dele! 💙',
+      '⏰ Lembrete carinhoso: está na hora de tomar seu medicamento! Você está indo muito bem! 🌟',
+      '💪 Mais uma dose, mais um passo rumo à saúde! Vamos lá, campeão(ã)!',
+      '🎯 Consistência é a chave! Hora de tomar seu medicamento e continuar essa jornada incrível!',
+      '❤️ Seu coração está contando com você! Hora do medicamento! 💊',
+      '🌈 Cuidar de você é um ato de amor! Hora de tomar seu remédio!',
+      '⭐ Você é uma estrela! Não esqueça seu medicamento agora!',
+      '🚀 Rumo à saúde plena! Hora de tomar seu medicamento!',
+      '💝 Seu bem-estar é prioridade! Lembrete: medicamento agora!',
+      '🎉 Parabéns por ser tão disciplinado(a)! Hora do remédio!',
+    ],
+    en: [
+      '💊 Medicine time! Your heart thanks you for taking such good care! 💙',
+      '⏰ Friendly reminder: it\'s time to take your medication! You\'re doing great! 🌟',
+      '💪 One more dose, one more step towards health! Let\'s go, champion!',
+      '🎯 Consistency is key! Time to take your medication and continue this amazing journey!',
+      '❤️ Your heart is counting on you! Medication time! 💊',
+      '🌈 Taking care of yourself is an act of love! Time for your medicine!',
+      '⭐ You\'re a star! Don\'t forget your medication now!',
+      '🚀 Towards full health! Time to take your medication!',
+      '💝 Your well-being is a priority! Reminder: medication now!',
+      '🎉 Congratulations on being so disciplined! Medicine time!',
+    ],
+    nl: [
+      '💊 Medicijntijd! Uw hart dankt u voor de goede zorg! 💙',
+      '⏰ Vriendelijke herinnering: het is tijd om uw medicijn in te nemen! U doet het geweldig! 🌟',
+      '💪 Nog een dosis, nog een stap naar gezondheid! Kom op, kampioen!',
+      '🎯 Consistentie is de sleutel! Tijd om uw medicijn in te nemen en deze geweldige reis voort te zetten!',
+      '❤️ Uw hart rekent op u! Medicijntijd! 💊',
+      '🌈 Voor uzelf zorgen is een daad van liefde! Tijd voor uw medicijn!',
+      '⭐ U bent een ster! Vergeet uw medicijn nu niet!',
+      '🚀 Naar volledige gezondheid! Tijd om uw medicijn in te nemen!',
+      '💝 Uw welzijn is een prioriteit! Herinnering: medicijn nu!',
+      '🎉 Gefeliciteerd met uw discipline! Medicijntijd!',
+    ],
+    fr: [
+      '💊 L\'heure du médicament! Votre cœur vous remercie de prendre si bien soin! 💙',
+      '⏰ Rappel amical: il est temps de prendre votre médicament! Vous faites du bon travail! 🌟',
+      '💪 Une dose de plus, un pas de plus vers la santé! Allez, champion!',
+      '🎯 La cohérence est la clé! Il est temps de prendre votre médicament et de continuer ce voyage incroyable!',
+      '❤️ Votre cœur compte sur vous! L\'heure du médicament! 💊',
+      '🌈 Prendre soin de vous est un acte d\'amour! L\'heure de votre médicament!',
+      '⭐ Vous êtes une étoile! N\'oubliez pas votre médicament maintenant!',
+      '🚀 Vers une santé complète! Il est temps de prendre votre médicament!',
+      '💝 Votre bien-être est une priorité! Rappel: médicament maintenant!',
+      '🎉 Félicitations pour votre discipline! L\'heure du médicament!',
+    ],
+    de: [
+      '💊 Medikamentenzeit! Ihr Herz dankt Ihnen für die gute Pflege! 💙',
+      '⏰ Freundliche Erinnerung: Es ist Zeit, Ihr Medikament einzunehmen! Sie machen das großartig! 🌟',
+      '💪 Eine Dosis mehr, ein Schritt mehr zur Gesundheit! Los geht\'s, Champion!',
+      '🎯 Konsistenz ist der Schlüssel! Zeit, Ihr Medikament einzunehmen und diese erstaunliche Reise fortzusetzen!',
+      '❤️ Ihr Herz zählt auf Sie! Medikamentenzeit! 💊',
+      '🌈 Sich um sich selbst zu kümmern ist ein Akt der Liebe! Zeit für Ihr Medikament!',
+      '⭐ Sie sind ein Star! Vergessen Sie Ihr Medikament jetzt nicht!',
+      '🚀 Auf dem Weg zur vollen Gesundheit! Zeit, Ihr Medikament einzunehmen!',
+      '💝 Ihr Wohlbefinden ist eine Priorität! Erinnerung: Medikament jetzt!',
+      '🎉 Herzlichen Glückwunsch zu Ihrer Disziplin! Medikamentenzeit!',
+    ],
+  };
+
+  return messages[language];
+};
 
 export default function Home() {
   const { language, t, changeLanguage } = useLanguage();
@@ -33,6 +241,9 @@ export default function Home() {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [userCurrency, setUserCurrency] = useState<string>('BRL');
   const [isUpgradeDialogOpen, setIsUpgradeDialogOpen] = useState(false);
+  const [isCoachTyping, setIsCoachTyping] = useState(false);
+  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
+  const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>('default');
 
   // Dados do onboarding
   const [onboardingData, setOnboardingData] = useState({
@@ -77,6 +288,95 @@ export default function Home() {
       color: 'from-amber-500 to-orange-600',
     },
   ];
+
+  // Sistema de Notificações - PREMIUM FEATURE
+  useEffect(() => {
+    if (typeof window !== 'undefined' && 'Notification' in window) {
+      setNotificationPermission(Notification.permission);
+    }
+  }, []);
+
+  // Solicitar permissão de notificações
+  const requestNotificationPermission = async () => {
+    if (!('Notification' in window)) {
+      alert(language === 'pt' ? 'Seu navegador não suporta notificações' :
+            language === 'en' ? 'Your browser does not support notifications' :
+            language === 'nl' ? 'Uw browser ondersteunt geen meldingen' :
+            language === 'fr' ? 'Votre navigateur ne prend pas en charge les notifications' :
+            'Ihr Browser unterstützt keine Benachrichtigungen');
+      return;
+    }
+
+    try {
+      const permission = await Notification.requestPermission();
+      setNotificationPermission(permission);
+      
+      if (permission === 'granted') {
+        setNotificationsEnabled(true);
+        // Mostrar notificação de teste
+        showNotification(
+          language === 'pt' ? '🎉 Notificações Ativadas!' :
+          language === 'en' ? '🎉 Notifications Enabled!' :
+          language === 'nl' ? '🎉 Meldingen Ingeschakeld!' :
+          language === 'fr' ? '🎉 Notifications Activées!' :
+          '🎉 Benachrichtigungen Aktiviert!',
+          language === 'pt' ? 'Você receberá lembretes quando for hora de tomar seus medicamentos!' :
+          language === 'en' ? 'You will receive reminders when it\'s time to take your medications!' :
+          language === 'nl' ? 'U ontvangt herinneringen wanneer het tijd is om uw medicijnen in te nemen!' :
+          language === 'fr' ? 'Vous recevrez des rappels lorsqu\'il sera temps de prendre vos médicaments!' :
+          'Sie erhalten Erinnerungen, wenn es Zeit ist, Ihre Medikamente einzunehmen!'
+        );
+      }
+    } catch (error) {
+      console.error('Erro ao solicitar permissão de notificações:', error);
+    }
+  };
+
+  // Mostrar notificação
+  const showNotification = (title: string, body: string) => {
+    if (notificationPermission === 'granted') {
+      new Notification(title, {
+        body,
+        icon: '/icon.svg',
+        badge: '/icon.svg',
+        vibrate: [200, 100, 200],
+        tag: 'medication-reminder',
+        requireInteraction: true,
+      });
+    }
+  };
+
+  // Verificar medicamentos pendentes e enviar notificações
+  useEffect(() => {
+    if (!userProfile || !notificationsEnabled || userProfile.plan === 'essencial') return;
+
+    const checkMedicationTimes = () => {
+      const now = new Date();
+      const currentTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+      
+      medications.forEach(med => {
+        med.times.forEach(time => {
+          if (time === currentTime && !wasTakenToday(med)) {
+            const messages = getMedicationNotificationMessages(language);
+            const randomMessage = messages[Math.floor(Math.random() * messages.length)];
+            
+            showNotification(
+              `${med.name} - ${med.dosage}`,
+              randomMessage
+            );
+          }
+        });
+      });
+    };
+
+    // Verificar a cada minuto
+    const interval = setInterval(checkMedicationTimes, 60000);
+    
+    // Verificar imediatamente ao carregar
+    checkMedicationTimes();
+
+    return () => clearInterval(interval);
+  }, [medications, notificationsEnabled, userProfile, language]);
 
   // Verificar se precisa mostrar onboarding
   useEffect(() => {
@@ -534,26 +834,22 @@ export default function Home() {
     }
   };
 
-  // Enviar mensagem para o Coach AI
+  // Enviar mensagem para o Coach AI - SISTEMA INTELIGENTE MELHORADO
   const handleCoachMessage = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!coachMessage.trim()) return;
+    if (!coachMessage.trim() || isCoachTyping) return;
 
     const newHistory = [...chatHistory, { role: 'user' as const, message: coachMessage }];
     setChatHistory(newHistory);
-
-    setTimeout(() => {
-      const responses = [
-        'Great question! Based on your profile, I recommend focusing on low-impact exercises and maintaining medication regularity.',
-        'Remember: consistency is more important than intensity. Small daily steps lead to great results!',
-        'Your heart health is in good hands! Keep following the plan and don\'t hesitate to ask me anything.',
-        'Important tip: monitor your blood pressure regularly and note the values. This helps a lot with medical follow-up.',
-      ];
-      const randomResponse = responses[Math.floor(Math.random() * responses.length)];
-      setChatHistory([...newHistory, { role: 'assistant', message: randomResponse }]);
-    }, 1000);
-
     setCoachMessage('');
+    setIsCoachTyping(true);
+
+    // Simular delay de digitação para parecer mais natural
+    setTimeout(() => {
+      const intelligentResponse = generateCoachResponse(coachMessage, userProfile, language, medications);
+      setChatHistory([...newHistory, { role: 'assistant', message: intelligentResponse }]);
+      setIsCoachTyping(false);
+    }, 1500);
   };
 
   // Analisar refeição
@@ -697,9 +993,10 @@ export default function Home() {
   };
 
   // Verificar se feature está disponível no plano
-  const hasFeatureAccess = (feature: 'medications' | 'exercises' | 'diet' | 'coach' | 'mealAnalysis') => {
+  const hasFeatureAccess = (feature: 'medications' | 'exercises' | 'diet' | 'coach' | 'mealAnalysis' | 'notifications') => {
     if (!userProfile) return false;
     if (feature === 'medications') return true;
+    if (feature === 'notifications') return userProfile.plan === 'premium' || userProfile.plan === 'elite';
     if (feature === 'mealAnalysis') return userProfile.plan === 'premium' || userProfile.plan === 'elite';
     return userProfile.plan === 'premium' || userProfile.plan === 'elite';
   };
@@ -1068,6 +1365,22 @@ export default function Home() {
               </div>
             </div>
             <div className="flex items-center gap-2">
+              {/* Botão de Notificações - PREMIUM */}
+              {hasFeatureAccess('notifications') && (
+                <Button
+                  onClick={requestNotificationPermission}
+                  variant={notificationsEnabled ? "default" : "outline"}
+                  size="sm"
+                  className={notificationsEnabled ? "bg-gradient-to-r from-green-500 to-emerald-600" : ""}
+                >
+                  {notificationsEnabled ? (
+                    <Bell className="w-4 h-4" />
+                  ) : (
+                    <BellOff className="w-4 h-4" />
+                  )}
+                </Button>
+              )}
+              
               {/* Seletor de língua DISCRETO */}
               <Select value={language} onValueChange={(value) => changeLanguage(value as Language)}>
                 <SelectTrigger className="w-[90px] h-9 text-xs border-gray-300">
@@ -1208,6 +1521,44 @@ export default function Home() {
 
           {/* Dashboard */}
           <TabsContent value="dashboard" className="space-y-6">
+            {/* Banner de Notificações - PREMIUM */}
+            {hasFeatureAccess('notifications') && !notificationsEnabled && (
+              <Card className="border-2 border-purple-200 bg-gradient-to-r from-purple-50 to-pink-50">
+                <CardContent className="flex items-center justify-between p-4">
+                  <div className="flex items-center gap-3">
+                    <Bell className="w-8 h-8 text-purple-600" />
+                    <div>
+                      <h4 className="font-semibold text-gray-900">
+                        {language === 'pt' ? 'Ative as Notificações!' :
+                         language === 'en' ? 'Enable Notifications!' :
+                         language === 'nl' ? 'Schakel Meldingen In!' :
+                         language === 'fr' ? 'Activez les Notifications!' :
+                         'Benachrichtigungen Aktivieren!'}
+                      </h4>
+                      <p className="text-sm text-gray-600">
+                        {language === 'pt' ? 'Receba lembretes personalizados quando for hora de tomar seus medicamentos' :
+                         language === 'en' ? 'Receive personalized reminders when it\'s time to take your medications' :
+                         language === 'nl' ? 'Ontvang gepersonaliseerde herinneringen wanneer het tijd is om uw medicijnen in te nemen' :
+                         language === 'fr' ? 'Recevez des rappels personnalisés lorsqu\'il est temps de prendre vos médicaments' :
+                         'Erhalten Sie personalisierte Erinnerungen, wenn es Zeit ist, Ihre Medikamente einzunehmen'}
+                      </p>
+                    </div>
+                  </div>
+                  <Button
+                    onClick={requestNotificationPermission}
+                    className="bg-gradient-to-r from-purple-500 to-pink-600"
+                  >
+                    <Bell className="w-4 h-4 mr-2" />
+                    {language === 'pt' ? 'Ativar' :
+                     language === 'en' ? 'Enable' :
+                     language === 'nl' ? 'Inschakelen' :
+                     language === 'fr' ? 'Activer' :
+                     'Aktivieren'}
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
+
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
               <Card className="bg-gradient-to-br from-red-500 to-pink-600 text-white border-0">
                 <CardHeader className="pb-3">
@@ -1917,7 +2268,7 @@ export default function Home() {
             )}
           </TabsContent>
 
-          {/* Coach Tab */}
+          {/* Coach Tab - SISTEMA INTELIGENTE MELHORADO */}
           <TabsContent value="coach" className="space-y-6">
             {!hasFeatureAccess('coach') ? (
               <Card className="border-2 border-purple-200 bg-gradient-to-br from-purple-50 to-pink-50">
@@ -2005,22 +2356,35 @@ export default function Home() {
                           <p className="text-sm">{t.coach.startConversation}</p>
                         </div>
                       ) : (
-                        chatHistory.map((msg, idx) => (
-                          <div
-                            key={idx}
-                            className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
-                          >
+                        <>
+                          {chatHistory.map((msg, idx) => (
                             <div
-                              className={`max-w-[80%] p-3 rounded-lg ${
-                                msg.role === 'user'
-                                  ? 'bg-gradient-to-r from-purple-500 to-pink-600 text-white'
-                                  : 'bg-white border border-gray-200 text-gray-900'
-                              }`}
+                              key={idx}
+                              className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
                             >
-                              <p className="text-sm">{msg.message}</p>
+                              <div
+                                className={`max-w-[80%] p-3 rounded-lg ${
+                                  msg.role === 'user'
+                                    ? 'bg-gradient-to-r from-purple-500 to-pink-600 text-white'
+                                    : 'bg-white border border-gray-200 text-gray-900'
+                                }`}
+                              >
+                                <p className="text-sm">{msg.message}</p>
+                              </div>
                             </div>
-                          </div>
-                        ))
+                          ))}
+                          {isCoachTyping && (
+                            <div className="flex justify-start">
+                              <div className="bg-white border border-gray-200 text-gray-900 p-3 rounded-lg">
+                                <div className="flex gap-1">
+                                  <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                                  <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                                  <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </>
                       )}
                     </div>
 
@@ -2030,10 +2394,11 @@ export default function Home() {
                         onChange={(e) => setCoachMessage(e.target.value)}
                         placeholder={t.coach.messagePlaceholder}
                         className="flex-1"
+                        disabled={isCoachTyping}
                       />
                       <Button
                         type="submit"
-                        disabled={!coachMessage.trim()}
+                        disabled={!coachMessage.trim() || isCoachTyping}
                         className="bg-gradient-to-r from-purple-500 to-pink-600"
                       >
                         <Send className="w-4 h-4" />
