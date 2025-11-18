@@ -255,7 +255,7 @@ export default function Home() {
     selectedPlan: 'premium' as 'essencial' | 'premium' | 'elite',
   });
 
-  // Planos disponíveis (agora com traduções)
+  // Planos disponíveis (agora com preços 0.99 e 9.99)
   const PLANS: Plan[] = [
     {
       id: 'essencial',
@@ -271,7 +271,7 @@ export default function Home() {
       id: 'premium',
       name: t.plans.premium.name,
       tagline: t.plans.premium.tagline,
-      price: 14.99,
+      price: 0.99,
       period: t.plans.premium.period,
       features: t.plans.premium.features,
       highlighted: true,
@@ -281,7 +281,7 @@ export default function Home() {
       id: 'elite',
       name: t.plans.elite.name,
       tagline: t.plans.elite.tagline,
-      price: 99.99,
+      price: 9.99,
       period: t.plans.elite.period,
       features: t.plans.elite.features,
       highlighted: false,
@@ -1298,17 +1298,17 @@ export default function Home() {
                   ))}
 
                   {/* ESSENTIAL - gratuito */}
-                  <button onClick={() => alert("Este plano é gratuito!")}>
+                  <button onClick={() => alert("Este plano é gratuito!")} className="w-full py-3 px-6 bg-gray-100 hover:bg-gray-200 rounded-lg font-medium text-gray-700 transition-colors">
                     Usar Plano Essential
                   </button>
 
                   {/* PREMIUM - Mensal */}
-                  <button onClick={() => (window as any)?.Android?.buyPremium()}>
+                  <button onClick={() => (window as any)?.Android?.buyPremium()} className="w-full py-3 px-6 bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700 text-white rounded-lg font-medium transition-all shadow-lg hover:shadow-xl">
                     Comprar Premium Mensal
                   </button>
 
                   {/* ELITE - Anual */}
-                  <button onClick={() => (window as any)?.Android?.buyElite()}>
+                  <button onClick={() => (window as any)?.Android?.buyElite()} className="w-full py-3 px-6 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white rounded-lg font-medium transition-all shadow-lg hover:shadow-xl">
                     Comprar Elite Anual
                   </button>
                 </div>
