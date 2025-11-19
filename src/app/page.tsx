@@ -255,7 +255,7 @@ export default function Home() {
     selectedPlan: 'premium' as 'essencial' | 'premium' | 'elite',
   });
 
-  // Planos disponíveis (agora com preços 0.99 e 9.99)
+  // Planos disponíveis (agora com preços 4.99 e 24.99 para todas as moedas)
   const PLANS: Plan[] = [
     {
       id: 'essencial',
@@ -271,7 +271,7 @@ export default function Home() {
       id: 'premium',
       name: t.plans.premium.name,
       tagline: t.plans.premium.tagline,
-      price: 0.99,
+      price: 4.99,
       period: t.plans.premium.period,
       features: t.plans.premium.features,
       highlighted: true,
@@ -281,7 +281,7 @@ export default function Home() {
       id: 'elite',
       name: t.plans.elite.name,
       tagline: t.plans.elite.tagline,
-      price: 9.99,
+      price: 24.99,
       period: t.plans.elite.period,
       features: t.plans.elite.features,
       highlighted: false,
