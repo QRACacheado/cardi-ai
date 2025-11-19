@@ -244,18 +244,21 @@ export default function Home() {
   const [isCoachTyping, setIsCoachTyping] = useState(false);
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>('default');
+  const [unitSystem, setUnitSystem] = useState<'metric' | 'imperial'>('metric');
 
   // Dados do onboarding
   const [onboardingData, setOnboardingData] = useState({
     age: '',
     weight: '',
     height: '',
+    heightFeet: '',
+    heightInches: '',
     medications: [''],
     medicationCount: '0',
     selectedPlan: 'premium' as 'essencial' | 'premium' | 'elite',
   });
 
-  // Planos disponíveis (agora com preços 4.99 e 24.99 para todas as moedas)
+  // Planos disponíveis - preços fixos independente da moeda
   const PLANS: Plan[] = [
     {
       id: 'essencial',
@@ -288,6 +291,30 @@ export default function Home() {
       color: 'from-amber-500 to-orange-600',
     },
   ];
+
+  // Conversão de unidades
+  const convertWeight = (value: number, from: 'kg' | 'lbs', to: 'kg' | 'lbs'): number => {
+    if (from === to) return value;
+    if (from === 'kg' && to === 'lbs') return value * 2.20462;
+    return value / 2.20462; // lbs to kg
+  };
+
+  const convertHeight = (value: number, from: 'cm' | 'inches', to: 'cm' | 'inches'): number => {
+    if (from === to) return value;
+    if (from === 'cm' && to === 'inches') return value / 2.54;
+    return value * 2.54; // inches to cm
+  };
+
+  const feetAndInchesToCm = (feet: number, inches: number): number => {
+    return (feet * 12 + inches) * 2.54;
+  };
+
+  const cmToFeetAndInches = (cm: number): { feet: number; inches: number } => {
+    const totalInches = cm / 2.54;
+    const feet = Math.floor(totalInches / 12);
+    const inches = Math.round(totalInches % 12);
+    return { feet, inches };
+  };
 
   // Sistema de Notificações - PREMIUM FEATURE
   useEffect(() => {
@@ -741,10 +768,22 @@ export default function Home() {
 
   // Finalizar onboarding
   const completeOnboarding = () => {
+    // Converter para métrico se necessário
+    let weightInKg = parseFloat(onboardingData.weight);
+    let heightInCm = parseFloat(onboardingData.height);
+
+    if (unitSystem === 'imperial') {
+      weightInKg = convertWeight(weightInKg, 'lbs', 'kg');
+      heightInCm = feetAndInchesToCm(
+        parseFloat(onboardingData.heightFeet),
+        parseFloat(onboardingData.heightInches)
+      );
+    }
+
     const profile: UserProfile = {
       age: parseInt(onboardingData.age),
-      weight: parseFloat(onboardingData.weight),
-      height: parseFloat(onboardingData.height),
+      weight: weightInKg,
+      height: heightInCm,
       medications: onboardingData.medications.filter(m => m.trim() !== ''),
       medicationCount: onboardingData.medications.filter(m => m.trim() !== '').length,
       plan: onboardingData.selectedPlan,
@@ -759,7 +798,11 @@ export default function Home() {
   // Validação de step
   const canProceedToNextStep = () => {
     if (onboardingStep === 1) {
-      return onboardingData.age && onboardingData.weight && onboardingData.height;
+      if (unitSystem === 'metric') {
+        return onboardingData.age && onboardingData.weight && onboardingData.height;
+      } else {
+        return onboardingData.age && onboardingData.weight && onboardingData.heightFeet && onboardingData.heightInches;
+      }
     }
     if (onboardingStep === 2) {
       return onboardingData.medications.some(m => m.trim() !== '');
@@ -1057,6 +1100,34 @@ export default function Home() {
                   <p className="text-gray-600">{t.onboarding.step1Subtitle}</p>
                 </div>
 
+                {/* Unit System Toggle */}
+                <div className="flex justify-center gap-2">
+                  <Button
+                    type="button"
+                    variant={unitSystem === 'metric' ? 'default' : 'outline'}
+                    onClick={() => setUnitSystem('metric')}
+                    className="flex-1"
+                  >
+                    {language === 'pt' ? 'Métrico (kg, cm)' :
+                     language === 'en' ? 'Metric (kg, cm)' :
+                     language === 'nl' ? 'Metrisch (kg, cm)' :
+                     language === 'fr' ? 'Métrique (kg, cm)' :
+                     'Metrisch (kg, cm)'}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={unitSystem === 'imperial' ? 'default' : 'outline'}
+                    onClick={() => setUnitSystem('imperial')}
+                    className="flex-1"
+                  >
+                    {language === 'pt' ? 'Imperial (lbs, ft)' :
+                     language === 'en' ? 'Imperial (lbs, ft)' :
+                     language === 'nl' ? 'Imperiaal (lbs, ft)' :
+                     language === 'fr' ? 'Impérial (lbs, ft)' :
+                     'Imperial (lbs, ft)'}
+                  </Button>
+                </div>
+
                 <div className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="age" className="text-base">{t.onboarding.age}</Label>
@@ -1070,32 +1141,105 @@ export default function Home() {
                     />
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="weight" className="text-base">{t.onboarding.weight}</Label>
-                      <Input
-                        id="weight"
-                        type="number"
-                        step="0.1"
-                        placeholder={t.onboarding.weightPlaceholder}
-                        value={onboardingData.weight}
-                        onChange={(e) => setOnboardingData({ ...onboardingData, weight: e.target.value })}
-                        className="text-lg h-12"
-                      />
-                    </div>
+                  {unitSystem === 'metric' ? (
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="weight" className="text-base">
+                          {language === 'pt' ? 'Peso (kg)' :
+                           language === 'en' ? 'Weight (kg)' :
+                           language === 'nl' ? 'Gewicht (kg)' :
+                           language === 'fr' ? 'Poids (kg)' :
+                           'Gewicht (kg)'}
+                        </Label>
+                        <Input
+                          id="weight"
+                          type="number"
+                          step="0.1"
+                          placeholder="70"
+                          value={onboardingData.weight}
+                          onChange={(e) => setOnboardingData({ ...onboardingData, weight: e.target.value })}
+                          className="text-lg h-12"
+                        />
+                      </div>
 
-                    <div className="space-y-2">
-                      <Label htmlFor="height" className="text-base">{t.onboarding.height}</Label>
-                      <Input
-                        id="height"
-                        type="number"
-                        placeholder={t.onboarding.heightPlaceholder}
-                        value={onboardingData.height}
-                        onChange={(e) => setOnboardingData({ ...onboardingData, height: e.target.value })}
-                        className="text-lg h-12"
-                      />
+                      <div className="space-y-2">
+                        <Label htmlFor="height" className="text-base">
+                          {language === 'pt' ? 'Altura (cm)' :
+                           language === 'en' ? 'Height (cm)' :
+                           language === 'nl' ? 'Lengte (cm)' :
+                           language === 'fr' ? 'Taille (cm)' :
+                           'Größe (cm)'}
+                        </Label>
+                        <Input
+                          id="height"
+                          type="number"
+                          placeholder="170"
+                          value={onboardingData.height}
+                          onChange={(e) => setOnboardingData({ ...onboardingData, height: e.target.value })}
+                          className="text-lg h-12"
+                        />
+                      </div>
                     </div>
-                  </div>
+                  ) : (
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="weightLbs" className="text-base">
+                          {language === 'pt' ? 'Peso (lbs)' :
+                           language === 'en' ? 'Weight (lbs)' :
+                           language === 'nl' ? 'Gewicht (lbs)' :
+                           language === 'fr' ? 'Poids (lbs)' :
+                           'Gewicht (lbs)'}
+                        </Label>
+                        <Input
+                          id="weightLbs"
+                          type="number"
+                          step="0.1"
+                          placeholder="154"
+                          value={onboardingData.weight}
+                          onChange={(e) => setOnboardingData({ ...onboardingData, weight: e.target.value })}
+                          className="text-lg h-12"
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="heightFeet" className="text-base">
+                            {language === 'pt' ? 'Altura (pés)' :
+                             language === 'en' ? 'Height (feet)' :
+                             language === 'nl' ? 'Lengte (voet)' :
+                             language === 'fr' ? 'Taille (pieds)' :
+                             'Größe (Fuß)'}
+                          </Label>
+                          <Input
+                            id="heightFeet"
+                            type="number"
+                            placeholder="5"
+                            value={onboardingData.heightFeet}
+                            onChange={(e) => setOnboardingData({ ...onboardingData, heightFeet: e.target.value })}
+                            className="text-lg h-12"
+                          />
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label htmlFor="heightInches" className="text-base">
+                            {language === 'pt' ? 'Polegadas' :
+                             language === 'en' ? 'Inches' :
+                             language === 'nl' ? 'Inches' :
+                             language === 'fr' ? 'Pouces' :
+                             'Zoll'}
+                          </Label>
+                          <Input
+                            id="heightInches"
+                            type="number"
+                            placeholder="7"
+                            value={onboardingData.heightInches}
+                            onChange={(e) => setOnboardingData({ ...onboardingData, heightInches: e.target.value })}
+                            className="text-lg h-12"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
@@ -1237,7 +1381,7 @@ export default function Home() {
                   </Select>
                 </div>
 
-                <div className="planos space-y-4">
+                <div className="space-y-4">
                   {PLANS.map((plan) => (
                     <div
                       key={plan.id}
@@ -1270,7 +1414,7 @@ export default function Home() {
                           </div>
                           <div className="text-right">
                             <div className="text-2xl font-bold text-gray-900">
-                              {plan.price === 0 ? t.common.free : formatPrice(plan.price)}
+                              {plan.price === 0 ? t.common.free : `${getCurrencyInfo(userCurrency).symbol}${plan.price.toFixed(2)}`}
                             </div>
                             <div className="text-xs text-gray-600">{plan.period}</div>
                           </div>
@@ -1296,21 +1440,6 @@ export default function Home() {
                       </div>
                     </div>
                   ))}
-
-                  {/* ESSENTIAL - gratuito */}
-                  <button onClick={() => alert("Este plano é gratuito!")} className="w-full py-3 px-6 bg-gray-100 hover:bg-gray-200 rounded-lg font-medium text-gray-700 transition-colors">
-                    Usar Plano Essential
-                  </button>
-
-                  {/* PREMIUM - Mensal */}
-                  <button onClick={() => (window as any)?.Android?.buyPremium()} className="w-full py-3 px-6 bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700 text-white rounded-lg font-medium transition-all shadow-lg hover:shadow-xl">
-                    Comprar Premium Mensal
-                  </button>
-
-                  {/* ELITE - Anual */}
-                  <button onClick={() => (window as any)?.Android?.buyElite()} className="w-full py-3 px-6 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white rounded-lg font-medium transition-all shadow-lg hover:shadow-xl">
-                    Comprar Elite Anual
-                  </button>
                 </div>
 
                 <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
