@@ -245,6 +245,7 @@ export default function Home() {
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>('default');
   const [unitSystem, setUnitSystem] = useState<'metric' | 'imperial'>('metric');
+  const [noMedications, setNoMedications] = useState(false);
 
   // Dados do onboarding
   const [onboardingData, setOnboardingData] = useState({
@@ -784,8 +785,8 @@ export default function Home() {
       age: parseInt(onboardingData.age),
       weight: weightInKg,
       height: heightInCm,
-      medications: onboardingData.medications.filter(m => m.trim() !== ''),
-      medicationCount: onboardingData.medications.filter(m => m.trim() !== '').length,
+      medications: noMedications ? [] : onboardingData.medications.filter(m => m.trim() !== ''),
+      medicationCount: noMedications ? 0 : onboardingData.medications.filter(m => m.trim() !== '').length,
       plan: onboardingData.selectedPlan,
       onboardingCompleted: true,
     };
@@ -805,7 +806,7 @@ export default function Home() {
       }
     }
     if (onboardingStep === 2) {
-      return onboardingData.medications.some(m => m.trim() !== '');
+      return noMedications || onboardingData.medications.some(m => m.trim() !== '');
     }
     if (onboardingStep === 3) {
       return onboardingData.medicationCount;
@@ -1058,6 +1059,12 @@ export default function Home() {
     setIsUpgradeDialogOpen(false);
   };
 
+  // Handler para "Não tomo medicamentos" - pula para step 4
+  const handleNoMedications = () => {
+    setNoMedications(true);
+    setOnboardingStep(4); // Pula direto para seleção de plano
+  };
+
   // Renderizar onboarding
   if (showOnboarding) {
     return (
@@ -1080,7 +1087,7 @@ export default function Home() {
           <CardContent className="space-y-6">
             {/* Progress Bar */}
             <div className="flex items-center gap-2">
-              {[1, 2, 3, 4].map((step) => (
+              {[1, 2, 4].map((step) => (
                 <div
                   key={step}
                   className={`flex-1 h-2 rounded-full transition-all ${
@@ -1252,111 +1259,69 @@ export default function Home() {
                   <p className="text-gray-600">{t.onboarding.step2Subtitle}</p>
                 </div>
 
-                <div className="space-y-3">
-                  {onboardingData.medications.map((med, index) => (
-                    <div key={index} className="flex gap-2">
-                      <Input
-                        placeholder={`${t.onboarding.medicationPlaceholder} ${index + 1}`}
-                        value={med}
-                        onChange={(e) => updateMedicationField(index, e.target.value)}
-                        className="text-base h-12"
-                      />
-                      {onboardingData.medications.length > 1 && (
-                        <Button
-                          type="button"
-                          variant="outline"
-                          onClick={() => removeMedicationField(index)}
-                          className="h-12 px-3"
-                        >
-                          ✕
-                        </Button>
-                      )}
-                    </div>
-                  ))}
-
+                {/* Opção: Não tomo medicamentos */}
+                <div className="flex items-center justify-center">
                   <Button
                     type="button"
-                    variant="outline"
-                    onClick={addMedicationField}
-                    className="w-full h-12 border-dashed"
+                    variant={noMedications ? 'default' : 'outline'}
+                    onClick={handleNoMedications}
+                    className="w-full max-w-md"
                   >
-                    <Plus className="w-4 h-4 mr-2" />
-                    {t.onboarding.addMedication}
+                    <Check className={`w-4 h-4 mr-2 ${noMedications ? 'opacity-100' : 'opacity-0'}`} />
+                    {language === 'pt' ? 'Não tomo medicamentos' :
+                     language === 'en' ? 'I don\'t take medications' :
+                     language === 'nl' ? 'Ik neem geen medicijnen' :
+                     language === 'fr' ? 'Je ne prends pas de médicaments' :
+                     'Ich nehme keine Medikamente'}
                   </Button>
                 </div>
 
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                  <p className="text-sm text-blue-800">
-                    💡 <strong>{t.common.tip}:</strong> {t.onboarding.medicationTip}
-                  </p>
-                </div>
+                {!noMedications && (
+                  <>
+                    <div className="space-y-3">
+                      {onboardingData.medications.map((med, index) => (
+                        <div key={index} className="flex gap-2">
+                          <Input
+                            placeholder={`${t.onboarding.medicationPlaceholder} ${index + 1}`}
+                            value={med}
+                            onChange={(e) => updateMedicationField(index, e.target.value)}
+                            className="text-base h-12"
+                          />
+                          {onboardingData.medications.length > 1 && (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              onClick={() => removeMedicationField(index)}
+                              className="h-12 px-3"
+                            >
+                              ✕
+                            </Button>
+                          )}
+                        </div>
+                      ))}
+
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={addMedicationField}
+                        className="w-full h-12 border-dashed"
+                      >
+                        <Plus className="w-4 h-4 mr-2" />
+                        {t.onboarding.addMedication}
+                      </Button>
+                    </div>
+
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                      <p className="text-sm text-blue-800">
+                        💡 <strong>{t.common.tip}:</strong> {t.onboarding.medicationTip}
+                      </p>
+                    </div>
+                  </>
+                )}
               </div>
             )}
 
-            {/* Step 3: Quantidade de Medicamentos */}
-            {onboardingStep === 3 && (
-              <div className="space-y-6 animate-in fade-in duration-500">
-                <div className="text-center space-y-2">
-                  <h3 className="text-2xl font-bold text-gray-900">
-                    {language === 'pt' ? 'Quantos medicamentos você toma?' :
-                     language === 'en' ? 'How many medications do you take?' :
-                     language === 'nl' ? 'Hoeveel medicijnen neemt u?' :
-                     language === 'fr' ? 'Combien de médicaments prenez-vous?' :
-                     'Wie viele Medikamente nehmen Sie?'}
-                  </h3>
-                  <p className="text-gray-600">
-                    {language === 'pt' ? 'Isso nos ajuda a personalizar suas recomendações' :
-                     language === 'en' ? 'This helps us personalize your recommendations' :
-                     language === 'nl' ? 'Dit helpt ons uw aanbevelingen te personaliseren' :
-                     language === 'fr' ? 'Cela nous aide à personnaliser vos recommandations' :
-                     'Dies hilft uns, Ihre Empfehlungen zu personalisieren'}
-                  </p>
-                </div>
-
-                <div className="grid grid-cols-3 gap-4">
-                  {['1-2', '3-5', '6+'].map((range) => (
-                    <button
-                      key={range}
-                      onClick={() => setOnboardingData({ ...onboardingData, medicationCount: range })}
-                      className={`p-6 rounded-xl border-2 transition-all hover:shadow-lg ${
-                        onboardingData.medicationCount === range
-                          ? 'border-red-500 bg-red-50 shadow-lg scale-105'
-                          : 'border-gray-200 hover:border-gray-300'
-                      }`}
-                    >
-                      <div className="text-3xl mb-2">💊</div>
-                      <div className="text-2xl font-bold text-gray-900">{range}</div>
-                      <div className="text-xs text-gray-600 mt-1">
-                        {language === 'pt' ? 'medicamentos' :
-                         language === 'en' ? 'medications' :
-                         language === 'nl' ? 'medicijnen' :
-                         language === 'fr' ? 'médicaments' :
-                         'Medikamente'}
-                      </div>
-                    </button>
-                  ))}
-                </div>
-
-                <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
-                  <p className="text-sm text-amber-800">
-                    ⚕️ <strong>
-                      {language === 'pt' ? 'Importante' :
-                       language === 'en' ? 'Important' :
-                       language === 'nl' ? 'Belangrijk' :
-                       language === 'fr' ? 'Important' :
-                       'Wichtig'}:
-                    </strong>{' '}
-                    {language === 'pt' ? 'Sempre consulte seu médico antes de fazer mudanças na medicação' :
-                     language === 'en' ? 'Always consult your doctor before making changes to medication' :
-                     language === 'nl' ? 'Raadpleeg altijd uw arts voordat u wijzigingen aanbrengt in medicatie' :
-                     language === 'fr' ? 'Consultez toujours votre médecin avant de modifier les médicaments' :
-                     'Konsultieren Sie immer Ihren Arzt, bevor Sie Änderungen an Medikamenten vornehmen'}
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {/* Step 4: Seleção de Plano */}
+            {/* Step 4: Seleção de Plano (Step 3 foi removido do fluxo quando "Não tomo medicamentos") */}
             {onboardingStep === 4 && (
               <div className="space-y-6 animate-in fade-in duration-500">
                 <div className="text-center space-y-2">
@@ -1452,10 +1417,24 @@ export default function Home() {
 
             {/* Navigation Buttons */}
             <div className="flex gap-3 pt-4">
-              {onboardingStep > 1 && (
+              {onboardingStep > 1 && onboardingStep !== 4 && (
                 <Button
                   variant="outline"
                   onClick={() => setOnboardingStep(onboardingStep - 1)}
+                  className="flex-1 h-12"
+                >
+                  <ChevronLeft className="w-4 h-4 mr-2" />
+                  {t.onboarding.back}
+                </Button>
+              )}
+
+              {onboardingStep === 4 && !noMedications && (
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setOnboardingStep(2);
+                    setNoMedications(false);
+                  }}
                   className="flex-1 h-12"
                 >
                   <ChevronLeft className="w-4 h-4 mr-2" />
