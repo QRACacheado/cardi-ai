@@ -244,18 +244,22 @@ export default function Home() {
   const [isCoachTyping, setIsCoachTyping] = useState(false);
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>('default');
+  const [unitSystem, setUnitSystem] = useState<'metric' | 'imperial'>('metric');
+  const [noMedications, setNoMedications] = useState(false);
 
   // Dados do onboarding
   const [onboardingData, setOnboardingData] = useState({
     age: '',
     weight: '',
     height: '',
+    heightFeet: '',
+    heightInches: '',
     medications: [''],
     medicationCount: '0',
     selectedPlan: 'premium' as 'essencial' | 'premium' | 'elite',
   });
 
-  // Planos disponíveis (agora com traduções)
+  // Planos disponíveis - preços fixos independente da moeda
   const PLANS: Plan[] = [
     {
       id: 'essencial',
@@ -288,6 +292,30 @@ export default function Home() {
       color: 'from-amber-500 to-orange-600',
     },
   ];
+
+  // Conversão de unidades
+  const convertWeight = (value: number, from: 'kg' | 'lbs', to: 'kg' | 'lbs'): number => {
+    if (from === to) return value;
+    if (from === 'kg' && to === 'lbs') return value * 2.20462;
+    return value / 2.20462; // lbs to kg
+  };
+
+  const convertHeight = (value: number, from: 'cm' | 'inches', to: 'cm' | 'inches'): number => {
+    if (from === to) return value;
+    if (from === 'cm' && to === 'inches') return value / 2.54;
+    return value * 2.54; // inches to cm
+  };
+
+  const feetAndInchesToCm = (feet: number, inches: number): number => {
+    return (feet * 12 + inches) * 2.54;
+  };
+
+  const cmToFeetAndInches = (cm: number): { feet: number; inches: number } => {
+    const totalInches = cm / 2.54;
+    const feet = Math.floor(totalInches / 12);
+    const inches = Math.round(totalInches % 12);
+    return { feet, inches };
+  };
 
   // Sistema de Notificações - PREMIUM FEATURE
   useEffect(() => {
@@ -741,12 +769,24 @@ export default function Home() {
 
   // Finalizar onboarding
   const completeOnboarding = () => {
+    // Converter para métrico se necessário
+    let weightInKg = parseFloat(onboardingData.weight);
+    let heightInCm = parseFloat(onboardingData.height);
+
+    if (unitSystem === 'imperial') {
+      weightInKg = convertWeight(weightInKg, 'lbs', 'kg');
+      heightInCm = feetAndInchesToCm(
+        parseFloat(onboardingData.heightFeet),
+        parseFloat(onboardingData.heightInches)
+      );
+    }
+
     const profile: UserProfile = {
       age: parseInt(onboardingData.age),
-      weight: parseFloat(onboardingData.weight),
-      height: parseFloat(onboardingData.height),
-      medications: onboardingData.medications.filter(m => m.trim() !== ''),
-      medicationCount: onboardingData.medications.filter(m => m.trim() !== '').length,
+      weight: weightInKg,
+      height: heightInCm,
+      medications: noMedications ? [] : onboardingData.medications.filter(m => m.trim() !== ''),
+      medicationCount: noMedications ? 0 : onboardingData.medications.filter(m => m.trim() !== '').length,
       plan: onboardingData.selectedPlan,
       onboardingCompleted: true,
     };
@@ -759,10 +799,14 @@ export default function Home() {
   // Validação de step
   const canProceedToNextStep = () => {
     if (onboardingStep === 1) {
-      return onboardingData.age && onboardingData.weight && onboardingData.height;
+      if (unitSystem === 'metric') {
+        return onboardingData.age && onboardingData.weight && onboardingData.height;
+      } else {
+        return onboardingData.age && onboardingData.weight && onboardingData.heightFeet && onboardingData.heightInches;
+      }
     }
     if (onboardingStep === 2) {
-      return onboardingData.medications.some(m => m.trim() !== '');
+      return noMedications || onboardingData.medications.some(m => m.trim() !== '');
     }
     if (onboardingStep === 3) {
       return onboardingData.medicationCount;
@@ -1015,29 +1059,35 @@ export default function Home() {
     setIsUpgradeDialogOpen(false);
   };
 
+  // Handler para "Não tomo medicamentos" - pula para step 4
+  const handleNoMedications = () => {
+    setNoMedications(true);
+    setOnboardingStep(4); // Pula direto para seleção de plano
+  };
+
   // Renderizar onboarding
   if (showOnboarding) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-red-50 via-white to-pink-50 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-gradient-to-br from-red-50 via-white to-pink-50 flex items-center justify-center p-3 sm:p-4">
         <Card className="w-full max-w-2xl shadow-2xl">
-          <CardHeader className="text-center space-y-2">
-            <div className="flex justify-center mb-4">
-              <div className="bg-gradient-to-br from-red-500 to-pink-600 p-4 rounded-2xl">
-                <Heart className="w-12 h-12 text-white" />
+          <CardHeader className="text-center space-y-2 p-4 sm:p-6">
+            <div className="flex justify-center mb-3">
+              <div className="bg-gradient-to-br from-red-500 to-pink-600 p-3 rounded-2xl">
+                <Heart className="w-8 h-8 sm:w-10 sm:h-10 text-white" />
               </div>
             </div>
-            <CardTitle className="text-3xl font-bold bg-gradient-to-r from-red-600 to-pink-600 bg-clip-text text-transparent">
+            <CardTitle className="text-xl sm:text-2xl md:text-3xl font-bold bg-gradient-to-r from-red-600 to-pink-600 bg-clip-text text-transparent">
               {t.appName}
             </CardTitle>
-            <CardDescription className="text-base">
+            <CardDescription className="text-sm sm:text-base">
               {t.appTagline}
             </CardDescription>
           </CardHeader>
 
-          <CardContent className="space-y-6">
+          <CardContent className="space-y-4 sm:space-y-6 p-4 sm:p-6">
             {/* Progress Bar */}
             <div className="flex items-center gap-2">
-              {[1, 2, 3, 4].map((step) => (
+              {[1, 2, 4].map((step) => (
                 <div
                   key={step}
                   className={`flex-1 h-2 rounded-full transition-all ${
@@ -1051,179 +1101,238 @@ export default function Home() {
 
             {/* Step 1: Dados Pessoais */}
             {onboardingStep === 1 && (
-              <div className="space-y-6 animate-in fade-in duration-500">
-                <div className="text-center space-y-2">
-                  <h3 className="text-2xl font-bold text-gray-900">{t.onboarding.step1Title}</h3>
-                  <p className="text-gray-600">{t.onboarding.step1Subtitle}</p>
+              <div className="space-y-4 sm:space-y-6 animate-in fade-in duration-500">
+                <div className="text-center space-y-1 sm:space-y-2">
+                  <h3 className="text-lg sm:text-xl md:text-2xl font-bold text-gray-900">{t.onboarding.step1Title}</h3>
+                  <p className="text-sm sm:text-base text-gray-600">{t.onboarding.step1Subtitle}</p>
                 </div>
 
-                <div className="space-y-4">
+                {/* Unit System Toggle */}
+                <div className="flex justify-center gap-2">
+                  <Button
+                    type="button"
+                    variant={unitSystem === 'metric' ? 'default' : 'outline'}
+                    onClick={() => setUnitSystem('metric')}
+                    className="flex-1 text-xs sm:text-sm h-9 sm:h-10"
+                  >
+                    {language === 'pt' ? 'Métrico (kg, cm)' :
+                     language === 'en' ? 'Metric (kg, cm)' :
+                     language === 'nl' ? 'Metrisch (kg, cm)' :
+                     language === 'fr' ? 'Métrique (kg, cm)' :
+                     'Metrisch (kg, cm)'}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={unitSystem === 'imperial' ? 'default' : 'outline'}
+                    onClick={() => setUnitSystem('imperial')}
+                    className="flex-1 text-xs sm:text-sm h-9 sm:h-10"
+                  >
+                    {language === 'pt' ? 'Imperial (lbs, ft)' :
+                     language === 'en' ? 'Imperial (lbs, ft)' :
+                     language === 'nl' ? 'Imperiaal (lbs, ft)' :
+                     language === 'fr' ? 'Impérial (lbs, ft)' :
+                     'Imperial (lbs, ft)'}
+                  </Button>
+                </div>
+
+                <div className="space-y-3 sm:space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="age" className="text-base">{t.onboarding.age}</Label>
+                    <Label htmlFor="age" className="text-sm sm:text-base">{t.onboarding.age}</Label>
                     <Input
                       id="age"
                       type="number"
                       placeholder={t.onboarding.agePlaceholder}
                       value={onboardingData.age}
                       onChange={(e) => setOnboardingData({ ...onboardingData, age: e.target.value })}
-                      className="text-lg h-12"
+                      className="text-base sm:text-lg h-10 sm:h-12"
                     />
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="weight" className="text-base">{t.onboarding.weight}</Label>
-                      <Input
-                        id="weight"
-                        type="number"
-                        step="0.1"
-                        placeholder={t.onboarding.weightPlaceholder}
-                        value={onboardingData.weight}
-                        onChange={(e) => setOnboardingData({ ...onboardingData, weight: e.target.value })}
-                        className="text-lg h-12"
-                      />
-                    </div>
+                  {unitSystem === 'metric' ? (
+                    <div className="grid grid-cols-2 gap-3 sm:gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="weight" className="text-sm sm:text-base">
+                          {language === 'pt' ? 'Peso (kg)' :
+                           language === 'en' ? 'Weight (kg)' :
+                           language === 'nl' ? 'Gewicht (kg)' :
+                           language === 'fr' ? 'Poids (kg)' :
+                           'Gewicht (kg)'}
+                        </Label>
+                        <Input
+                          id="weight"
+                          type="number"
+                          step="0.1"
+                          placeholder="70"
+                          value={onboardingData.weight}
+                          onChange={(e) => setOnboardingData({ ...onboardingData, weight: e.target.value })}
+                          className="text-base sm:text-lg h-10 sm:h-12"
+                        />
+                      </div>
 
-                    <div className="space-y-2">
-                      <Label htmlFor="height" className="text-base">{t.onboarding.height}</Label>
-                      <Input
-                        id="height"
-                        type="number"
-                        placeholder={t.onboarding.heightPlaceholder}
-                        value={onboardingData.height}
-                        onChange={(e) => setOnboardingData({ ...onboardingData, height: e.target.value })}
-                        className="text-lg h-12"
-                      />
+                      <div className="space-y-2">
+                        <Label htmlFor="height" className="text-sm sm:text-base">
+                          {language === 'pt' ? 'Altura (cm)' :
+                           language === 'en' ? 'Height (cm)' :
+                           language === 'nl' ? 'Lengte (cm)' :
+                           language === 'fr' ? 'Taille (cm)' :
+                           'Größe (cm)'}
+                        </Label>
+                        <Input
+                          id="height"
+                          type="number"
+                          placeholder="170"
+                          value={onboardingData.height}
+                          onChange={(e) => setOnboardingData({ ...onboardingData, height: e.target.value })}
+                          className="text-base sm:text-lg h-10 sm:h-12"
+                        />
+                      </div>
                     </div>
-                  </div>
+                  ) : (
+                    <div className="space-y-3 sm:space-y-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="weightLbs" className="text-sm sm:text-base">
+                          {language === 'pt' ? 'Peso (lbs)' :
+                           language === 'en' ? 'Weight (lbs)' :
+                           language === 'nl' ? 'Gewicht (lbs)' :
+                           language === 'fr' ? 'Poids (lbs)' :
+                           'Gewicht (lbs)'}
+                        </Label>
+                        <Input
+                          id="weightLbs"
+                          type="number"
+                          step="0.1"
+                          placeholder="154"
+                          value={onboardingData.weight}
+                          onChange={(e) => setOnboardingData({ ...onboardingData, weight: e.target.value })}
+                          className="text-base sm:text-lg h-10 sm:h-12"
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3 sm:gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="heightFeet" className="text-sm sm:text-base">
+                            {language === 'pt' ? 'Altura (pés)' :
+                             language === 'en' ? 'Height (feet)' :
+                             language === 'nl' ? 'Lengte (voet)' :
+                             language === 'fr' ? 'Taille (pieds)' :
+                             'Größe (Fuß)'}
+                          </Label>
+                          <Input
+                            id="heightFeet"
+                            type="number"
+                            placeholder="5"
+                            value={onboardingData.heightFeet}
+                            onChange={(e) => setOnboardingData({ ...onboardingData, heightFeet: e.target.value })}
+                            className="text-base sm:text-lg h-10 sm:h-12"
+                          />
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label htmlFor="heightInches" className="text-sm sm:text-base">
+                            {language === 'pt' ? 'Polegadas' :
+                             language === 'en' ? 'Inches' :
+                             language === 'nl' ? 'Inches' :
+                             language === 'fr' ? 'Pouces' :
+                             'Zoll'}
+                          </Label>
+                          <Input
+                            id="heightInches"
+                            type="number"
+                            placeholder="7"
+                            value={onboardingData.heightInches}
+                            onChange={(e) => setOnboardingData({ ...onboardingData, heightInches: e.target.value })}
+                            className="text-base sm:text-lg h-10 sm:h-12"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
 
             {/* Step 2: Medicamentos */}
             {onboardingStep === 2 && (
-              <div className="space-y-6 animate-in fade-in duration-500">
-                <div className="text-center space-y-2">
-                  <h3 className="text-2xl font-bold text-gray-900">{t.onboarding.step2Title}</h3>
-                  <p className="text-gray-600">{t.onboarding.step2Subtitle}</p>
+              <div className="space-y-4 sm:space-y-6 animate-in fade-in duration-500">
+                <div className="text-center space-y-1 sm:space-y-2">
+                  <h3 className="text-lg sm:text-xl md:text-2xl font-bold text-gray-900">{t.onboarding.step2Title}</h3>
+                  <p className="text-sm sm:text-base text-gray-600">{t.onboarding.step2Subtitle}</p>
                 </div>
 
-                <div className="space-y-3">
-                  {onboardingData.medications.map((med, index) => (
-                    <div key={index} className="flex gap-2">
-                      <Input
-                        placeholder={`${t.onboarding.medicationPlaceholder} ${index + 1}`}
-                        value={med}
-                        onChange={(e) => updateMedicationField(index, e.target.value)}
-                        className="text-base h-12"
-                      />
-                      {onboardingData.medications.length > 1 && (
-                        <Button
-                          type="button"
-                          variant="outline"
-                          onClick={() => removeMedicationField(index)}
-                          className="h-12 px-3"
-                        >
-                          ✕
-                        </Button>
-                      )}
-                    </div>
-                  ))}
-
+                {/* Opção: Não tomo medicamentos */}
+                <div className="flex items-center justify-center">
                   <Button
                     type="button"
-                    variant="outline"
-                    onClick={addMedicationField}
-                    className="w-full h-12 border-dashed"
+                    variant={noMedications ? 'default' : 'outline'}
+                    onClick={handleNoMedications}
+                    className="w-full max-w-md text-sm sm:text-base h-10 sm:h-11"
                   >
-                    <Plus className="w-4 h-4 mr-2" />
-                    {t.onboarding.addMedication}
+                    <Check className={`w-4 h-4 mr-2 ${noMedications ? 'opacity-100' : 'opacity-0'}`} />
+                    {language === 'pt' ? 'Não tomo medicamentos' :
+                     language === 'en' ? 'I don\'t take medications' :
+                     language === 'nl' ? 'Ik neem geen medicijnen' :
+                     language === 'fr' ? 'Je ne prends pas de médicaments' :
+                     'Ich nehme keine Medikamente'}
                   </Button>
                 </div>
 
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                  <p className="text-sm text-blue-800">
-                    💡 <strong>{t.common.tip}:</strong> {t.onboarding.medicationTip}
-                  </p>
-                </div>
+                {!noMedications && (
+                  <>
+                    <div className="space-y-2 sm:space-y-3">
+                      {onboardingData.medications.map((med, index) => (
+                        <div key={index} className="flex gap-2">
+                          <Input
+                            placeholder={`${t.onboarding.medicationPlaceholder} ${index + 1}`}
+                            value={med}
+                            onChange={(e) => updateMedicationField(index, e.target.value)}
+                            className="text-sm sm:text-base h-10 sm:h-12"
+                          />
+                          {onboardingData.medications.length > 1 && (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              onClick={() => removeMedicationField(index)}
+                              className="h-10 sm:h-12 px-3"
+                            >
+                              ✕
+                            </Button>
+                          )}
+                        </div>
+                      ))}
+
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={addMedicationField}
+                        className="w-full h-10 sm:h-12 border-dashed text-sm sm:text-base"
+                      >
+                        <Plus className="w-4 h-4 mr-2" />
+                        {t.onboarding.addMedication}
+                      </Button>
+                    </div>
+
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 sm:p-4">
+                      <p className="text-xs sm:text-sm text-blue-800">
+                        💡 <strong>{t.common.tip}:</strong> {t.onboarding.medicationTip}
+                      </p>
+                    </div>
+                  </>
+                )}
               </div>
             )}
 
-            {/* Step 3: Quantidade de Medicamentos */}
-            {onboardingStep === 3 && (
-              <div className="space-y-6 animate-in fade-in duration-500">
-                <div className="text-center space-y-2">
-                  <h3 className="text-2xl font-bold text-gray-900">
-                    {language === 'pt' ? 'Quantos medicamentos você toma?' :
-                     language === 'en' ? 'How many medications do you take?' :
-                     language === 'nl' ? 'Hoeveel medicijnen neemt u?' :
-                     language === 'fr' ? 'Combien de médicaments prenez-vous?' :
-                     'Wie viele Medikamente nehmen Sie?'}
-                  </h3>
-                  <p className="text-gray-600">
-                    {language === 'pt' ? 'Isso nos ajuda a personalizar suas recomendações' :
-                     language === 'en' ? 'This helps us personalize your recommendations' :
-                     language === 'nl' ? 'Dit helpt ons uw aanbevelingen te personaliseren' :
-                     language === 'fr' ? 'Cela nous aide à personnaliser vos recommandations' :
-                     'Dies hilft uns, Ihre Empfehlungen zu personalisieren'}
-                  </p>
-                </div>
-
-                <div className="grid grid-cols-3 gap-4">
-                  {['1-2', '3-5', '6+'].map((range) => (
-                    <button
-                      key={range}
-                      onClick={() => setOnboardingData({ ...onboardingData, medicationCount: range })}
-                      className={`p-6 rounded-xl border-2 transition-all hover:shadow-lg ${
-                        onboardingData.medicationCount === range
-                          ? 'border-red-500 bg-red-50 shadow-lg scale-105'
-                          : 'border-gray-200 hover:border-gray-300'
-                      }`}
-                    >
-                      <div className="text-3xl mb-2">💊</div>
-                      <div className="text-2xl font-bold text-gray-900">{range}</div>
-                      <div className="text-xs text-gray-600 mt-1">
-                        {language === 'pt' ? 'medicamentos' :
-                         language === 'en' ? 'medications' :
-                         language === 'nl' ? 'medicijnen' :
-                         language === 'fr' ? 'médicaments' :
-                         'Medikamente'}
-                      </div>
-                    </button>
-                  ))}
-                </div>
-
-                <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
-                  <p className="text-sm text-amber-800">
-                    ⚕️ <strong>
-                      {language === 'pt' ? 'Importante' :
-                       language === 'en' ? 'Important' :
-                       language === 'nl' ? 'Belangrijk' :
-                       language === 'fr' ? 'Important' :
-                       'Wichtig'}:
-                    </strong>{' '}
-                    {language === 'pt' ? 'Sempre consulte seu médico antes de fazer mudanças na medicação' :
-                     language === 'en' ? 'Always consult your doctor before making changes to medication' :
-                     language === 'nl' ? 'Raadpleeg altijd uw arts voordat u wijzigingen aanbrengt in medicatie' :
-                     language === 'fr' ? 'Consultez toujours votre médecin avant de modifier les médicaments' :
-                     'Konsultieren Sie immer Ihren Arzt, bevor Sie Änderungen an Medikamenten vornehmen'}
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {/* Step 4: Seleção de Plano */}
+            {/* Step 4: Seleção de Plano (Step 3 foi removido do fluxo quando "Não tomo medicamentos") */}
             {onboardingStep === 4 && (
-              <div className="space-y-6 animate-in fade-in duration-500">
-                <div className="text-center space-y-2">
-                  <h3 className="text-2xl font-bold text-gray-900">{t.onboarding.step3Title}</h3>
-                  <p className="text-gray-600">{t.onboarding.step3Subtitle}</p>
+              <div className="space-y-4 sm:space-y-6 animate-in fade-in duration-500">
+                <div className="text-center space-y-1 sm:space-y-2">
+                  <h3 className="text-lg sm:text-xl md:text-2xl font-bold text-gray-900">{t.onboarding.step3Title}</h3>
+                  <p className="text-sm sm:text-base text-gray-600">{t.onboarding.step3Subtitle}</p>
                 </div>
 
                 {/* Language Selector - DISCRETO NO CANTO */}
                 <div className="flex justify-end">
                   <Select value={language} onValueChange={(value) => changeLanguage(value as Language)}>
-                    <SelectTrigger className="w-[100px] h-8 text-xs border-gray-300">
+                    <SelectTrigger className="w-[80px] sm:w-[100px] h-7 sm:h-8 text-xs border-gray-300">
                       <Globe className="w-3 h-3 mr-1" />
                       <SelectValue />
                     </SelectTrigger>
@@ -1237,7 +1346,7 @@ export default function Home() {
                   </Select>
                 </div>
 
-                <div className="space-y-4">
+                <div className="space-y-3 sm:space-y-4">
                   {PLANS.map((plan) => (
                     <div
                       key={plan.id}
@@ -1249,37 +1358,37 @@ export default function Home() {
                       } ${plan.highlighted ? 'ring-2 ring-purple-500 ring-offset-2' : ''}`}
                     >
                       {plan.highlighted && (
-                        <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                          <Badge className="bg-gradient-to-r from-purple-500 to-pink-600 text-white px-4">
+                        <div className="absolute -top-2 sm:-top-3 left-1/2 -translate-x-1/2">
+                          <Badge className="bg-gradient-to-r from-purple-500 to-pink-600 text-white px-2 sm:px-4 text-xs">
                             <Sparkles className="w-3 h-3 mr-1" />
                             {t.onboarding.mostPopular}
                           </Badge>
                         </div>
                       )}
 
-                      <div className="p-6 space-y-4">
+                      <div className="p-4 sm:p-6 space-y-3 sm:space-y-4">
                         <div className="flex items-start justify-between">
                           <div className="space-y-1">
                             <div className="flex items-center gap-2">
-                              {plan.id === 'essencial' && <Shield className="w-5 h-5 text-gray-600" />}
-                              {plan.id === 'premium' && <Sparkles className="w-5 h-5 text-purple-600" />}
-                              {plan.id === 'elite' && <Crown className="w-5 h-5 text-amber-600" />}
-                              <h4 className="text-xl font-bold text-gray-900">{plan.name}</h4>
+                              {plan.id === 'essencial' && <Shield className="w-4 h-4 sm:w-5 sm:h-5 text-gray-600" />}
+                              {plan.id === 'premium' && <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 text-purple-600" />}
+                              {plan.id === 'elite' && <Crown className="w-4 h-4 sm:w-5 sm:h-5 text-amber-600" />}
+                              <h4 className="text-base sm:text-lg md:text-xl font-bold text-gray-900">{plan.name}</h4>
                             </div>
-                            <p className="text-sm text-gray-600">{plan.tagline}</p>
+                            <p className="text-xs sm:text-sm text-gray-600">{plan.tagline}</p>
                           </div>
                           <div className="text-right">
-                            <div className="text-2xl font-bold text-gray-900">
-                              {plan.price === 0 ? t.common.free : formatPrice(plan.price)}
+                            <div className="text-lg sm:text-xl md:text-2xl font-bold text-gray-900">
+                              {plan.price === 0 ? t.common.free : `${getCurrencyInfo(userCurrency).symbol}${plan.price.toFixed(2)}`}
                             </div>
                             <div className="text-xs text-gray-600">{plan.period}</div>
                           </div>
                         </div>
 
-                        <div className="space-y-2">
+                        <div className="space-y-1.5 sm:space-y-2">
                           {plan.features.map((feature, idx) => (
-                            <div key={idx} className="flex items-start gap-2 text-sm">
-                              <Check className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
+                            <div key={idx} className="flex items-start gap-2 text-xs sm:text-sm">
+                              <Check className="w-3 h-3 sm:w-4 sm:h-4 text-green-600 mt-0.5 flex-shrink-0" />
                               <span className="text-gray-700">{feature}</span>
                             </div>
                           ))}
@@ -1287,8 +1396,8 @@ export default function Home() {
 
                         {onboardingData.selectedPlan === plan.id && (
                           <div className="pt-2">
-                            <Badge className="bg-green-500 w-full justify-center py-2">
-                              <Check className="w-4 h-4 mr-1" />
+                            <Badge className="bg-green-500 w-full justify-center py-1.5 sm:py-2 text-xs sm:text-sm">
+                              <Check className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
                               {t.onboarding.planSelected}
                             </Badge>
                           </div>
@@ -1298,8 +1407,8 @@ export default function Home() {
                   ))}
                 </div>
 
-                <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
-                  <p className="text-sm text-amber-800">
+                <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 sm:p-4">
+                  <p className="text-xs sm:text-sm text-amber-800">
                     💰 <strong>{PLANS[2].name}:</strong> {t.onboarding.eliteTip}
                   </p>
                 </div>
@@ -1307,12 +1416,26 @@ export default function Home() {
             )}
 
             {/* Navigation Buttons */}
-            <div className="flex gap-3 pt-4">
-              {onboardingStep > 1 && (
+            <div className="flex gap-2 sm:gap-3 pt-3 sm:pt-4">
+              {onboardingStep > 1 && onboardingStep !== 4 && (
                 <Button
                   variant="outline"
                   onClick={() => setOnboardingStep(onboardingStep - 1)}
-                  className="flex-1 h-12"
+                  className="flex-1 h-10 sm:h-12 text-sm sm:text-base"
+                >
+                  <ChevronLeft className="w-4 h-4 mr-2" />
+                  {t.onboarding.back}
+                </Button>
+              )}
+
+              {onboardingStep === 4 && !noMedications && (
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setOnboardingStep(2);
+                    setNoMedications(false);
+                  }}
+                  className="flex-1 h-10 sm:h-12 text-sm sm:text-base"
                 >
                   <ChevronLeft className="w-4 h-4 mr-2" />
                   {t.onboarding.back}
@@ -1323,7 +1446,7 @@ export default function Home() {
                 <Button
                   onClick={() => setOnboardingStep(onboardingStep + 1)}
                   disabled={!canProceedToNextStep()}
-                  className="flex-1 h-12 bg-gradient-to-r from-red-500 to-pink-600"
+                  className="flex-1 h-10 sm:h-12 bg-gradient-to-r from-red-500 to-pink-600 text-sm sm:text-base"
                 >
                   {t.onboarding.continue}
                   <ChevronRight className="w-4 h-4 ml-2" />
@@ -1331,7 +1454,7 @@ export default function Home() {
               ) : (
                 <Button
                   onClick={completeOnboarding}
-                  className="flex-1 h-12 bg-gradient-to-r from-red-500 to-pink-600"
+                  className="flex-1 h-10 sm:h-12 bg-gradient-to-r from-red-500 to-pink-600 text-sm sm:text-base"
                 >
                   <Check className="w-4 h-4 mr-2" />
                   {t.onboarding.startNow}
@@ -1345,45 +1468,34 @@ export default function Home() {
   }
 
   // App principal (após onboarding)
-  const exercises = userProfile ? getPersonalizedExercises(userProfile.weight, userProfile.age) : [];
-  const dietPlan = userProfile ? getPersonalizedDiet(userProfile.weight, userProfile.height, userProfile.age) : null;
-  const coachTips = userProfile ? getCoachTips(userProfile.weight, userProfile.age, userProfile.medicationCount) : [];
+  if (!userProfile) return null;
+
+  const exercises = getPersonalizedExercises(userProfile.weight, userProfile.age);
+  const dietPlan = getPersonalizedDiet(userProfile.weight, userProfile.height, userProfile.age);
+  const coachTips = getCoachTips(userProfile.weight, userProfile.age, userProfile.medicationCount);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-red-50 via-white to-pink-50">
       {/* Header */}
-      <header className="bg-white border-b border-red-100 shadow-sm">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="bg-gradient-to-br from-red-500 to-pink-600 p-2 rounded-xl">
-                <Heart className="w-6 h-6 text-white" />
+      <header className="bg-white border-b border-gray-200 sticky top-0 z-50 shadow-sm">
+        <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6">
+          <div className="flex items-center justify-between h-14 sm:h-16">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <div className="bg-gradient-to-br from-red-500 to-pink-600 p-1.5 sm:p-2 rounded-xl">
+                <Heart className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-gray-900">{t.appName}</h1>
-                <p className="text-sm text-gray-600">{t.appTagline}</p>
+                <h1 className="text-base sm:text-lg md:text-xl font-bold bg-gradient-to-r from-red-600 to-pink-600 bg-clip-text text-transparent">
+                  {t.appName}
+                </h1>
+                <p className="text-[10px] sm:text-xs text-gray-600 hidden sm:block">{t.appTagline}</p>
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              {/* Botão de Notificações - PREMIUM */}
-              {hasFeatureAccess('notifications') && (
-                <Button
-                  onClick={requestNotificationPermission}
-                  variant={notificationsEnabled ? "default" : "outline"}
-                  size="sm"
-                  className={notificationsEnabled ? "bg-gradient-to-r from-green-500 to-emerald-600" : ""}
-                >
-                  {notificationsEnabled ? (
-                    <Bell className="w-4 h-4" />
-                  ) : (
-                    <BellOff className="w-4 h-4" />
-                  )}
-                </Button>
-              )}
-              
-              {/* Seletor de língua DISCRETO */}
+
+            <div className="flex items-center gap-2 sm:gap-3">
+              {/* Language Selector */}
               <Select value={language} onValueChange={(value) => changeLanguage(value as Language)}>
-                <SelectTrigger className="w-[90px] h-9 text-xs border-gray-300">
+                <SelectTrigger className="w-[70px] sm:w-[90px] h-7 sm:h-9 text-[10px] sm:text-xs">
                   <Globe className="w-3 h-3 mr-1" />
                   <SelectValue />
                 </SelectTrigger>
@@ -1395,362 +1507,217 @@ export default function Home() {
                   <SelectItem value="de">🇩🇪 DE</SelectItem>
                 </SelectContent>
               </Select>
-              <Button
+
+              {/* Plan Badge */}
+              <Badge 
+                className={`${
+                  userProfile.plan === 'elite' ? 'bg-gradient-to-r from-amber-500 to-orange-600' :
+                  userProfile.plan === 'premium' ? 'bg-gradient-to-r from-purple-500 to-pink-600' :
+                  'bg-gray-500'
+                } text-white cursor-pointer text-[10px] sm:text-xs px-2 py-1`}
                 onClick={() => setIsUpgradeDialogOpen(true)}
-                className={`bg-gradient-to-r ${PLANS.find(p => p.id === userProfile?.plan)?.color} h-9 px-3 flex items-center text-xs`}
               >
-                {PLANS.find(p => p.id === userProfile?.plan)?.name}
-              </Button>
+                {userProfile.plan === 'elite' && <Crown className="w-2.5 h-2.5 sm:w-3 sm:h-3 mr-1" />}
+                {userProfile.plan === 'premium' && <Sparkles className="w-2.5 h-2.5 sm:w-3 sm:h-3 mr-1" />}
+                {userProfile.plan === 'essencial' && <Shield className="w-2.5 h-2.5 sm:w-3 sm:h-3 mr-1" />}
+                <span className="hidden sm:inline">
+                  {userProfile.plan === 'elite' ? t.plans.elite.name :
+                   userProfile.plan === 'premium' ? t.plans.premium.name :
+                   t.plans.essencial.name}
+                </span>
+              </Badge>
             </div>
           </div>
         </div>
       </header>
 
-      {/* Dialog de Alteração de Plano */}
-      <Dialog open={isUpgradeDialogOpen} onOpenChange={setIsUpgradeDialogOpen}>
-        <DialogContent className="sm:max-w-[600px]">
-          <DialogHeader>
-            <DialogTitle className="text-2xl">
-              {language === 'pt' ? 'Alterar Plano' :
-               language === 'en' ? 'Change Plan' :
-               language === 'nl' ? 'Plan Wijzigen' :
-               language === 'fr' ? 'Changer de Plan' :
-               'Plan Ändern'}
-            </DialogTitle>
-            <DialogDescription>
-              {language === 'pt' ? 'Escolha o plano que melhor atende suas necessidades' :
-               language === 'en' ? 'Choose the plan that best suits your needs' :
-               language === 'nl' ? 'Kies het plan dat het beste bij uw behoeften past' :
-               language === 'fr' ? 'Choisissez le plan qui correspond le mieux à vos besoins' :
-               'Wählen Sie den Plan, der Ihren Bedürfnissen am besten entspricht'}
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="space-y-4 py-4">
-            {PLANS.map((plan) => (
-              <div
-                key={plan.id}
-                onClick={() => handleChangePlan(plan.id)}
-                className={`relative cursor-pointer rounded-xl border-2 transition-all hover:shadow-lg ${
-                  userProfile?.plan === plan.id
-                    ? 'border-red-500 bg-red-50 shadow-lg'
-                    : 'border-gray-200 hover:border-gray-300'
-                } ${plan.highlighted ? 'ring-2 ring-purple-500 ring-offset-2' : ''}`}
-              >
-                {plan.highlighted && (
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                    <Badge className="bg-gradient-to-r from-purple-500 to-pink-600 text-white px-4">
-                      <Sparkles className="w-3 h-3 mr-1" />
-                      {t.onboarding.mostPopular}
-                    </Badge>
-                  </div>
-                )}
-
-                <div className="p-6 space-y-4">
-                  <div className="flex items-start justify-between">
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        {plan.id === 'essencial' && <Shield className="w-5 h-5 text-gray-600" />}
-                        {plan.id === 'premium' && <Sparkles className="w-5 h-5 text-purple-600" />}
-                        {plan.id === 'elite' && <Crown className="w-5 h-5 text-amber-600" />}
-                        <h4 className="text-xl font-bold text-gray-900">{plan.name}</h4>
-                      </div>
-                      <p className="text-sm text-gray-600">{plan.tagline}</p>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-2xl font-bold text-gray-900">
-                        {plan.price === 0 ? t.common.free : formatPrice(plan.price)}
-                      </div>
-                      <div className="text-xs text-gray-600">{plan.period}</div>
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    {plan.features.map((feature, idx) => (
-                      <div key={idx} className="flex items-start gap-2 text-sm">
-                        <Check className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
-                        <span className="text-gray-700">{feature}</span>
-                      </div>
-                    ))}
-                  </div>
-
-                  {userProfile?.plan === plan.id && (
-                    <div className="pt-2">
-                      <Badge className="bg-green-500 w-full justify-center py-2">
-                        <Check className="w-4 h-4 mr-1" />
-                        {language === 'pt' ? 'Plano Atual' :
-                         language === 'en' ? 'Current Plan' :
-                         language === 'nl' ? 'Huidig Plan' :
-                         language === 'fr' ? 'Plan Actuel' :
-                         'Aktueller Plan'}
-                      </Badge>
-                    </div>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        </DialogContent>
-      </Dialog>
-
       {/* Main Content */}
-      <main className="container mx-auto px-4 py-6 max-w-6xl">
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-5 mb-6 bg-white shadow-sm h-auto">
-            <TabsTrigger value="dashboard" className="flex flex-col items-center gap-1 py-3 data-[state=active]:bg-gradient-to-br data-[state=active]:from-red-500 data-[state=active]:to-pink-600 data-[state=active]:text-white">
-              <Heart className="w-5 h-5" />
-              <span className="text-xs font-medium">{t.nav.home}</span>
+      <main className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 py-4 sm:py-6 md:py-8">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4 sm:space-y-6">
+          <TabsList className="grid w-full grid-cols-5 h-auto p-1">
+            <TabsTrigger value="dashboard" className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 text-[10px] sm:text-sm py-2 sm:py-2.5">
+              <Activity className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              <span className="hidden sm:inline">{t.tabs.dashboard}</span>
             </TabsTrigger>
-            <TabsTrigger value="medications" className="flex flex-col items-center gap-1 py-3 data-[state=active]:bg-gradient-to-br data-[state=active]:from-red-500 data-[state=active]:to-pink-600 data-[state=active]:text-white">
-              <Pill className="w-5 h-5" />
-              <span className="text-xs font-medium">{t.nav.medications}</span>
+            <TabsTrigger value="medications" className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 text-[10px] sm:text-sm py-2 sm:py-2.5">
+              <Pill className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              <span className="hidden sm:inline">{t.tabs.medications}</span>
             </TabsTrigger>
-            <TabsTrigger value="exercises" className="flex flex-col items-center gap-1 py-3 data-[state=active]:bg-gradient-to-br data-[state=active]:from-blue-500 data-[state=active]:to-cyan-600 data-[state=active]:text-white" disabled={!hasFeatureAccess('exercises')}>
-              <Activity className="w-5 h-5" />
-              <span className="text-xs font-medium">{t.nav.exercises}</span>
+            <TabsTrigger value="exercises" className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 text-[10px] sm:text-sm py-2 sm:py-2.5">
+              <Dumbbell className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              <span className="hidden sm:inline">{t.tabs.exercises}</span>
             </TabsTrigger>
-            <TabsTrigger value="diet" className="flex flex-col items-center gap-1 py-3 data-[state=active]:bg-gradient-to-br data-[state=active]:from-green-500 data-[state=active]:to-emerald-600 data-[state=active]:text-white" disabled={!hasFeatureAccess('diet')}>
-              <Utensils className="w-5 h-5" />
-              <span className="text-xs font-medium">{t.nav.diet}</span>
+            <TabsTrigger value="diet" className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 text-[10px] sm:text-sm py-2 sm:py-2.5">
+              <Utensils className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              <span className="hidden sm:inline">{t.tabs.diet}</span>
             </TabsTrigger>
-            <TabsTrigger value="coach" className="flex flex-col items-center gap-1 py-3 data-[state=active]:bg-gradient-to-br data-[state=active]:from-purple-500 data-[state=active]:to-pink-600 data-[state=active]:text-white" disabled={!hasFeatureAccess('coach')}>
-              <MessageCircle className="w-5 h-5" />
-              <span className="text-xs font-medium">{t.nav.coach}</span>
+            <TabsTrigger value="coach" className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 text-[10px] sm:text-sm py-2 sm:py-2.5">
+              <MessageCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              <span className="hidden sm:inline">{t.tabs.coach}</span>
             </TabsTrigger>
           </TabsList>
 
-          {/* Dashboard */}
-          <TabsContent value="dashboard" className="space-y-6">
-            {/* Banner de Notificações - PREMIUM */}
-            {hasFeatureAccess('notifications') && !notificationsEnabled && (
-              <Card className="border-2 border-purple-200 bg-gradient-to-r from-purple-50 to-pink-50">
-                <CardContent className="flex items-center justify-between p-4">
-                  <div className="flex items-center gap-3">
-                    <Bell className="w-8 h-8 text-purple-600" />
-                    <div>
-                      <h4 className="font-semibold text-gray-900">
-                        {language === 'pt' ? 'Ative as Notificações!' :
-                         language === 'en' ? 'Enable Notifications!' :
-                         language === 'nl' ? 'Schakel Meldingen In!' :
-                         language === 'fr' ? 'Activez les Notifications!' :
-                         'Benachrichtigungen Aktivieren!'}
-                      </h4>
-                      <p className="text-sm text-gray-600">
-                        {language === 'pt' ? 'Receba lembretes personalizados quando for hora de tomar seus medicamentos' :
-                         language === 'en' ? 'Receive personalized reminders when it\'s time to take your medications' :
-                         language === 'nl' ? 'Ontvang gepersonaliseerde herinneringen wanneer het tijd is om uw medicijnen in te nemen' :
-                         language === 'fr' ? 'Recevez des rappels personnalisés lorsqu\'il est temps de prendre vos médicaments' :
-                         'Erhalten Sie personalisierte Erinnerungen, wenn es Zeit ist, Ihre Medikamente einzunehmen'}
-                      </p>
-                    </div>
+          {/* Dashboard Tab */}
+          <TabsContent value="dashboard" className="space-y-4 sm:space-y-6">
+            <div className="grid gap-3 sm:gap-4 md:gap-6 md:grid-cols-2 lg:grid-cols-3">
+              {/* Card: Perfil */}
+              <Card>
+                <CardHeader className="p-3 sm:p-4 md:p-6">
+                  <CardTitle className="flex items-center gap-2 text-sm sm:text-base md:text-lg">
+                    <Heart className="w-4 h-4 sm:w-5 sm:h-5 text-red-500" />
+                    {t.dashboard.profile}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2 sm:space-y-3 p-3 sm:p-4 md:p-6 pt-0">
+                  <div className="flex justify-between text-xs sm:text-sm">
+                    <span className="text-gray-600">{t.onboarding.age}:</span>
+                    <span className="font-semibold">{userProfile.age} {t.dashboard.years}</span>
                   </div>
-                  <Button
-                    onClick={requestNotificationPermission}
-                    className="bg-gradient-to-r from-purple-500 to-pink-600"
-                  >
-                    <Bell className="w-4 h-4 mr-2" />
-                    {language === 'pt' ? 'Ativar' :
-                     language === 'en' ? 'Enable' :
-                     language === 'nl' ? 'Inschakelen' :
-                     language === 'fr' ? 'Activer' :
-                     'Aktivieren'}
-                  </Button>
+                  <div className="flex justify-between text-xs sm:text-sm">
+                    <span className="text-gray-600">{t.dashboard.weight}:</span>
+                    <span className="font-semibold">{userProfile.weight.toFixed(1)} kg</span>
+                  </div>
+                  <div className="flex justify-between text-xs sm:text-sm">
+                    <span className="text-gray-600">{t.dashboard.height}:</span>
+                    <span className="font-semibold">{userProfile.height.toFixed(0)} cm</span>
+                  </div>
+                  <div className="flex justify-between text-xs sm:text-sm">
+                    <span className="text-gray-600">IMC:</span>
+                    <span className="font-semibold">{dietPlan.imc}</span>
+                  </div>
+                  <Badge className="w-full justify-center text-xs">{dietPlan.status}</Badge>
                 </CardContent>
               </Card>
-            )}
 
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-              <Card className="bg-gradient-to-br from-red-500 to-pink-600 text-white border-0">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-sm font-medium flex items-center gap-2">
-                    <Pill className="w-4 h-4" />
+              {/* Card: Medicamentos Hoje */}
+              <Card>
+                <CardHeader className="p-3 sm:p-4 md:p-6">
+                  <CardTitle className="flex items-center gap-2 text-sm sm:text-base md:text-lg">
+                    <Pill className="w-4 h-4 sm:w-5 sm:h-5 text-blue-500" />
                     {t.dashboard.medicationsToday}
                   </CardTitle>
                 </CardHeader>
-                <CardContent>
-                  <div className="text-3xl font-bold">{medications.length}</div>
-                  <p className="text-xs text-red-100 mt-1">
-                    {medications.filter(m => wasTakenToday(m)).length} {t.dashboard.taken}
-                  </p>
+                <CardContent className="p-3 sm:p-4 md:p-6 pt-0">
+                  <div className="text-center space-y-2">
+                    <div className="text-3xl sm:text-4xl font-bold text-blue-600">
+                      {medications.filter(m => wasTakenToday(m)).length}/{medications.length}
+                    </div>
+                    <p className="text-xs sm:text-sm text-gray-600">{t.dashboard.medicationsTaken}</p>
+                    <Button 
+                      onClick={() => setActiveTab('medications')} 
+                      variant="outline" 
+                      className="w-full mt-3 sm:mt-4 text-xs sm:text-sm h-8 sm:h-9"
+                    >
+                      {t.dashboard.viewAll}
+                    </Button>
+                  </div>
                 </CardContent>
               </Card>
 
-              <Card className="bg-gradient-to-br from-blue-500 to-cyan-600 text-white border-0">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-sm font-medium flex items-center gap-2">
-                    <Activity className="w-4 h-4" />
-                    {t.dashboard.exercises}
+              {/* Card: Exercícios Completados */}
+              <Card>
+                <CardHeader className="p-3 sm:p-4 md:p-6">
+                  <CardTitle className="flex items-center gap-2 text-sm sm:text-base md:text-lg">
+                    <Dumbbell className="w-4 h-4 sm:w-5 sm:h-5 text-green-500" />
+                    {t.dashboard.exercisesToday}
                   </CardTitle>
                 </CardHeader>
-                <CardContent>
-                  <div className="text-3xl font-bold">{completedExercises.length}</div>
-                  <p className="text-xs text-blue-100 mt-1">{t.dashboard.completedToday}</p>
-                </CardContent>
-              </Card>
-
-              <Card className="bg-gradient-to-br from-green-500 to-emerald-600 text-white border-0">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-sm font-medium flex items-center gap-2">
-                    <Utensils className="w-4 h-4" />
-                    {t.dashboard.caloriesGoal}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-3xl font-bold">{dietPlan?.caloriasDiarias || 0}</div>
-                  <p className="text-xs text-green-100 mt-1">{t.dashboard.caloriesPerDay}</p>
-                </CardContent>
-              </Card>
-
-              <Card className="bg-gradient-to-br from-purple-500 to-pink-600 text-white border-0">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-sm font-medium flex items-center gap-2">
-                    <Heart className="w-4 h-4" />
-                    {t.dashboard.bmi}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-3xl font-bold">{dietPlan?.imc || 0}</div>
-                  <p className="text-xs text-purple-100 mt-1">{dietPlan?.status || t.dashboard.calculating}</p>
+                <CardContent className="p-3 sm:p-4 md:p-6 pt-0">
+                  <div className="text-center space-y-2">
+                    <div className="text-3xl sm:text-4xl font-bold text-green-600">
+                      {completedExercises.length}/{exercises.length}
+                    </div>
+                    <p className="text-xs sm:text-sm text-gray-600">{t.dashboard.exercisesCompleted}</p>
+                    <Button 
+                      onClick={() => setActiveTab('exercises')} 
+                      variant="outline" 
+                      className="w-full mt-3 sm:mt-4 text-xs sm:text-sm h-8 sm:h-9"
+                    >
+                      {t.dashboard.startExercise}
+                    </Button>
+                  </div>
                 </CardContent>
               </Card>
             </div>
 
-            {/* Próximos Remédios */}
+            {/* Dicas do Coach */}
             <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Clock className="w-5 h-5 text-red-500" />
-                  {t.dashboard.nextMedications}
+              <CardHeader className="p-3 sm:p-4 md:p-6">
+                <CardTitle className="flex items-center gap-2 text-sm sm:text-base md:text-lg">
+                  <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 text-purple-500" />
+                  {t.dashboard.coachTips}
                 </CardTitle>
-                <CardDescription>{t.dashboard.medicationsForToday}</CardDescription>
+                <CardDescription className="text-xs sm:text-sm">{t.dashboard.coachTipsSubtitle}</CardDescription>
               </CardHeader>
-              <CardContent>
-                {medications.length === 0 ? (
-                  <div className="text-center py-8 text-gray-500">
-                    <Pill className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-                    <p>{t.dashboard.noMedications}</p>
-                    <Button 
-                      onClick={() => setActiveTab('medications')} 
-                      className="mt-4 bg-gradient-to-r from-red-500 to-pink-600"
-                    >
-                      {t.dashboard.addFirstMedication}
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {medications.map(med => (
-                      <div 
-                        key={med.id} 
-                        className={`flex items-center justify-between p-4 rounded-lg border-2 transition-all ${
-                          wasTakenToday(med) 
-                            ? 'bg-green-50 border-green-200' 
-                            : 'bg-white border-gray-200 hover:border-red-300'
-                        }`}
-                      >
-                        <div className="flex-1">
-                          <h4 className="font-semibold text-gray-900">{med.name}</h4>
-                          <p className="text-sm text-gray-600">{med.dosage} - {med.frequency}</p>
-                          <div className="flex gap-2 mt-1">
-                            {med.times.map((time, idx) => (
-                              <Badge key={idx} variant="outline" className="text-xs">
-                                {time}
-                              </Badge>
-                            ))}
-                          </div>
+              <CardContent className="p-3 sm:p-4 md:p-6 pt-0">
+                <div className="grid gap-3 sm:gap-4 md:grid-cols-2">
+                  {coachTips.slice(0, 4).map((tip) => (
+                    <div key={tip.id} className="p-3 sm:p-4 bg-gradient-to-br from-purple-50 to-pink-50 rounded-lg border border-purple-200">
+                      <div className="flex items-start gap-2 sm:gap-3">
+                        <div className="text-xl sm:text-2xl">{tip.categoria.split(' ')[0]}</div>
+                        <div className="flex-1 space-y-1">
+                          <h4 className="font-semibold text-gray-900 text-xs sm:text-sm">{tip.titulo}</h4>
+                          <p className="text-xs sm:text-sm text-gray-600">{tip.mensagem}</p>
+                          <p className="text-[10px] sm:text-xs text-purple-600 font-medium mt-1 sm:mt-2">💡 {tip.dica}</p>
                         </div>
-                        {wasTakenToday(med) ? (
-                          <Badge className="bg-green-500">
-                            <Check className="w-3 h-3 mr-1" />
-                            {t.dashboard.taken}
-                          </Badge>
-                        ) : (
-                          <Button 
-                            size="sm" 
-                            onClick={() => markAsTaken(med.id)}
-                            className="bg-gradient-to-r from-red-500 to-pink-600"
-                          >
-                            <Check className="w-4 h-4 mr-1" />
-                            {t.dashboard.mark}
-                          </Button>
-                        )}
                       </div>
-                    ))}
-                  </div>
-                )}
+                    </div>
+                  ))}
+                </div>
               </CardContent>
             </Card>
           </TabsContent>
 
           {/* Medications Tab */}
-          <TabsContent value="medications" className="space-y-4">
-            <div className="flex justify-between items-center">
+          <TabsContent value="medications" className="space-y-4 sm:space-y-6">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0">
               <div>
-                <h2 className="text-2xl font-bold text-gray-900">{t.medications.title}</h2>
-                <p className="text-gray-600">{t.medications.subtitle}</p>
+                <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-gray-900">{t.medications.title}</h2>
+                <p className="text-xs sm:text-sm md:text-base text-gray-600">{t.medications.subtitle}</p>
               </div>
               <Dialog open={isAddMedicationOpen} onOpenChange={setIsAddMedicationOpen}>
                 <DialogTrigger asChild>
-                  <Button className="bg-gradient-to-r from-red-500 to-pink-600">
-                    <Plus className="w-4 h-4 mr-2" />
-                    {t.medications.addMedication}
+                  <Button className="bg-gradient-to-r from-blue-500 to-purple-600 text-xs sm:text-sm h-8 sm:h-9 md:h-10 w-full sm:w-auto">
+                    <Plus className="w-3 h-3 sm:w-4 sm:h-4 mr-2" />
+                    {t.medications.addNew}
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="sm:max-w-[500px]">
+                <DialogContent className="max-w-[95vw] sm:max-w-md">
                   <DialogHeader>
-                    <DialogTitle>{t.medications.addNew}</DialogTitle>
-                    <DialogDescription>
-                      {t.medications.fillInfo}
-                    </DialogDescription>
+                    <DialogTitle className="text-base sm:text-lg">{t.medications.addNew}</DialogTitle>
+                    <DialogDescription className="text-xs sm:text-sm">{t.medications.addDescription}</DialogDescription>
                   </DialogHeader>
-                  <form onSubmit={handleAddMedication} className="space-y-4">
+                  <form onSubmit={handleAddMedication} className="space-y-3 sm:space-y-4">
                     <div className="space-y-2">
-                      <Label htmlFor="name">{t.medications.name}</Label>
-                      <Input 
-                        id="name" 
-                        name="name" 
-                        placeholder={t.medications.namePlaceholder}
-                        required 
-                      />
+                      <Label htmlFor="name" className="text-xs sm:text-sm">{t.medications.name}</Label>
+                      <Input id="name" name="name" placeholder={t.medications.namePlaceholder} required className="text-sm h-9 sm:h-10" />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="dosage">{t.medications.dosage}</Label>
-                      <Input 
-                        id="dosage" 
-                        name="dosage" 
-                        placeholder={t.medications.dosagePlaceholder}
-                        required 
-                      />
+                      <Label htmlFor="dosage" className="text-xs sm:text-sm">{t.medications.dosage}</Label>
+                      <Input id="dosage" name="dosage" placeholder={t.medications.dosagePlaceholder} required className="text-sm h-9 sm:h-10" />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="frequency">{t.medications.frequency}</Label>
-                      <Input 
-                        id="frequency" 
-                        name="frequency" 
-                        placeholder={t.medications.frequencyPlaceholder}
-                        required 
-                      />
+                      <Label htmlFor="frequency" className="text-xs sm:text-sm">{t.medications.frequency}</Label>
+                      <Select name="frequency" required>
+                        <SelectTrigger className="text-sm h-9 sm:h-10">
+                          <SelectValue placeholder={t.medications.selectFrequency} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="1x">{t.medications.onceDaily}</SelectItem>
+                          <SelectItem value="2x">{t.medications.twiceDaily}</SelectItem>
+                          <SelectItem value="3x">{t.medications.threeTimesDaily}</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="times">{t.medications.times}</Label>
-                      <Input 
-                        id="times" 
-                        name="times" 
-                        placeholder={t.medications.timesPlaceholder}
-                        required 
-                      />
+                      <Label htmlFor="times" className="text-xs sm:text-sm">{t.medications.times}</Label>
+                      <Input id="times" name="times" placeholder={t.medications.timesPlaceholder} required className="text-sm h-9 sm:h-10" />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="notes">{t.medications.notes}</Label>
-                      <Textarea 
-                        id="notes" 
-                        name="notes" 
-                        placeholder={t.medications.notesPlaceholder}
-                      />
+                      <Label htmlFor="notes" className="text-xs sm:text-sm">{t.medications.notes}</Label>
+                      <Textarea id="notes" name="notes" placeholder={t.medications.notesPlaceholder} className="text-sm" />
                     </div>
-                    <Button 
-                      type="submit" 
-                      className="w-full bg-gradient-to-r from-red-500 to-pink-600"
-                    >
+                    <Button type="submit" className="w-full text-sm h-9 sm:h-10">
                       {t.medications.save}
                     </Button>
                   </form>
@@ -1759,80 +1726,192 @@ export default function Home() {
             </div>
 
             {medications.length === 0 ? (
-              <Card className="border-2 border-dashed">
-                <CardContent className="flex flex-col items-center justify-center py-12">
-                  <Pill className="w-16 h-16 text-gray-300 mb-4" />
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                    {t.medications.noMedicationsYet}
-                  </h3>
-                  <p className="text-gray-600 text-center mb-4">
-                    {t.medications.noMedicationsDescription}
-                  </p>
-                  <Button 
-                    onClick={() => setIsAddMedicationOpen(true)}
-                    className="bg-gradient-to-r from-red-500 to-pink-600"
-                  >
-                    <Plus className="w-4 h-4 mr-2" />
-                    {t.dashboard.addFirstMedication}
+              <Card>
+                <CardContent className="flex flex-col items-center justify-center py-8 sm:py-12 p-4">
+                  <Pill className="w-12 h-12 sm:w-16 sm:h-16 text-gray-300 mb-3 sm:mb-4" />
+                  <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-2">{t.medications.noMedications}</h3>
+                  <p className="text-xs sm:text-sm text-gray-600 text-center mb-3 sm:mb-4">{t.medications.noMedicationsDescription}</p>
+                  <Button onClick={() => setIsAddMedicationOpen(true)} className="text-xs sm:text-sm h-8 sm:h-9">
+                    <Plus className="w-3 h-3 sm:w-4 sm:h-4 mr-2" />
+                    {t.medications.addFirst}
                   </Button>
                 </CardContent>
               </Card>
             ) : (
-              <div className="grid gap-4 md:grid-cols-2">
-                {medications.map(med => (
-                  <Card key={med.id} className="hover:shadow-lg transition-shadow">
-                    <CardHeader>
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <CardTitle className="text-xl">{med.name}</CardTitle>
-                          <CardDescription>{med.dosage}</CardDescription>
+              <div className="grid gap-3 sm:gap-4">
+                {medications.map((med) => (
+                  <Card key={med.id} className={wasTakenToday(med) ? 'border-green-500 bg-green-50' : ''}>
+                    <CardContent className="p-3 sm:p-4 md:p-6">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-2 flex-wrap">
+                            <h3 className="text-sm sm:text-base md:text-lg font-bold text-gray-900">{med.name}</h3>
+                            {wasTakenToday(med) && (
+                              <Badge className="bg-green-500 text-xs">
+                                <Check className="w-2.5 h-2.5 sm:w-3 sm:h-3 mr-1" />
+                                {t.medications.taken}
+                              </Badge>
+                            )}
+                          </div>
+                          <div className="space-y-0.5 sm:space-y-1 text-xs sm:text-sm text-gray-600">
+                            <p><strong>{t.medications.dosage}:</strong> {med.dosage}</p>
+                            <p><strong>{t.medications.frequency}:</strong> {med.frequency}</p>
+                            <p><strong>{t.medications.times}:</strong> {med.times.join(', ')}</p>
+                            {med.notes && <p><strong>{t.medications.notes}:</strong> {med.notes}</p>}
+                          </div>
                         </div>
-                        {wasTakenToday(med) && (
-                          <Badge className="bg-green-500">
-                            <Check className="w-3 h-3 mr-1" />
-                            {t.medications.takenToday}
-                          </Badge>
-                        )}
+                        <div className="flex flex-col gap-2 flex-shrink-0">
+                          {!wasTakenToday(med) && (
+                            <Button 
+                              onClick={() => markAsTaken(med.id)}
+                              size="sm"
+                              className="bg-green-500 hover:bg-green-600 text-xs h-7 sm:h-8"
+                            >
+                              <Check className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
+                              <span className="hidden sm:inline">{t.medications.markTaken}</span>
+                            </Button>
+                          )}
+                          <Button 
+                            onClick={() => deleteMedication(med.id)}
+                            size="sm"
+                            variant="destructive"
+                            className="text-xs h-7 sm:h-8"
+                          >
+                            <Trash2 className="w-3 h-3 sm:w-4 sm:h-4" />
+                          </Button>
+                        </div>
                       </div>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      <div>
-                        <p className="text-sm font-medium text-gray-700 mb-2">{t.medications.frequency}</p>
-                        <p className="text-sm text-gray-600">{med.frequency}</p>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+
+            {/* Notificações - PREMIUM FEATURE */}
+            {hasFeatureAccess('notifications') && (
+              <Card className="border-purple-200 bg-gradient-to-br from-purple-50 to-pink-50">
+                <CardHeader className="p-3 sm:p-4 md:p-6">
+                  <CardTitle className="flex items-center gap-2 text-sm sm:text-base md:text-lg">
+                    {notificationsEnabled ? <Bell className="w-4 h-4 sm:w-5 sm:h-5 text-purple-600" /> : <BellOff className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400" />}
+                    {t.medications.notifications}
+                  </CardTitle>
+                  <CardDescription className="text-xs sm:text-sm">{t.medications.notificationsDescription}</CardDescription>
+                </CardHeader>
+                <CardContent className="p-3 sm:p-4 md:p-6 pt-0">
+                  {notificationPermission === 'denied' ? (
+                    <div className="text-center py-3 sm:py-4">
+                      <p className="text-xs sm:text-sm text-red-600 mb-2">{t.medications.notificationsDenied}</p>
+                      <p className="text-[10px] sm:text-xs text-gray-600">{t.medications.notificationsDeniedHelp}</p>
+                    </div>
+                  ) : notificationsEnabled ? (
+                    <div className="text-center py-3 sm:py-4">
+                      <div className="inline-flex items-center justify-center w-12 h-12 sm:w-16 sm:h-16 bg-green-100 rounded-full mb-2 sm:mb-3">
+                        <Bell className="w-6 h-6 sm:w-8 sm:h-8 text-green-600" />
                       </div>
-                      <div>
-                        <p className="text-sm font-medium text-gray-700 mb-2">{t.medications.times}</p>
-                        <div className="flex flex-wrap gap-2">
-                          {med.times.map((time, idx) => (
-                            <Badge key={idx} variant="outline">
-                              <Clock className="w-3 h-3 mr-1" />
-                              {time}
+                      <h4 className="font-semibold text-gray-900 mb-1 text-sm sm:text-base">{t.medications.notificationsActive}</h4>
+                      <p className="text-xs sm:text-sm text-gray-600">{t.medications.notificationsActiveDescription}</p>
+                      <Button 
+                        onClick={() => setNotificationsEnabled(false)}
+                        variant="outline"
+                        size="sm"
+                        className="mt-3 sm:mt-4 text-xs h-7 sm:h-8"
+                      >
+                        {t.medications.disableNotifications}
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="text-center py-3 sm:py-4">
+                      <p className="text-xs sm:text-sm text-gray-600 mb-3 sm:mb-4">{t.medications.enableNotificationsDescription}</p>
+                      <Button 
+                        onClick={requestNotificationPermission}
+                        className="bg-gradient-to-r from-purple-500 to-pink-600 text-xs sm:text-sm h-8 sm:h-9"
+                      >
+                        <Bell className="w-3 h-3 sm:w-4 sm:h-4 mr-2" />
+                        {t.medications.enableNotifications}
+                      </Button>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+          </TabsContent>
+
+          {/* Exercises Tab */}
+          <TabsContent value="exercises" className="space-y-4 sm:space-y-6">
+            <div>
+              <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-gray-900">{t.exercises.title}</h2>
+              <p className="text-xs sm:text-sm md:text-base text-gray-600">{t.exercises.subtitle}</p>
+            </div>
+
+            {!hasFeatureAccess('exercises') ? (
+              <Card className="border-purple-200 bg-gradient-to-br from-purple-50 to-pink-50">
+                <CardContent className="flex flex-col items-center justify-center py-8 sm:py-12 p-4">
+                  <div className="bg-gradient-to-br from-purple-500 to-pink-600 p-3 sm:p-4 rounded-2xl mb-3 sm:mb-4">
+                    <Sparkles className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 text-white" />
+                  </div>
+                  <h3 className="text-base sm:text-lg md:text-xl font-bold text-gray-900 mb-2">{t.exercises.premiumFeature}</h3>
+                  <p className="text-xs sm:text-sm text-gray-600 text-center mb-4 sm:mb-6 max-w-md">{t.exercises.premiumDescription}</p>
+                  <Button 
+                    onClick={() => setIsUpgradeDialogOpen(true)}
+                    className="bg-gradient-to-r from-purple-500 to-pink-600 text-xs sm:text-sm h-8 sm:h-9"
+                  >
+                    <Crown className="w-3 h-3 sm:w-4 sm:h-4 mr-2" />
+                    {t.exercises.upgrade}
+                  </Button>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="grid gap-3 sm:gap-4">
+                {exercises.map((exercise) => (
+                  <Card key={exercise.id} className={completedExercises.includes(exercise.id) ? 'border-green-500 bg-green-50' : ''}>
+                    <CardContent className="p-3 sm:p-4 md:p-6">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 sm:gap-3 mb-2 sm:mb-3">
+                            <span className="text-2xl sm:text-3xl">{exercise.icon}</span>
+                            <div className="min-w-0">
+                              <h3 className="text-sm sm:text-base md:text-lg font-bold text-gray-900">{exercise.name}</h3>
+                              <div className="flex items-center gap-2 sm:gap-3 text-[10px] sm:text-xs md:text-sm text-gray-600 flex-wrap">
+                                <span className="flex items-center gap-1">
+                                  <Timer className="w-3 h-3 sm:w-4 sm:h-4" />
+                                  {exercise.duration}
+                                </span>
+                                <span className="flex items-center gap-1">
+                                  <Activity className="w-3 h-3 sm:w-4 sm:h-4" />
+                                  {exercise.intensity}
+                                </span>
+                                <span className="flex items-center gap-1">
+                                  <Target className="w-3 h-3 sm:w-4 sm:h-4" />
+                                  ~{exercise.calories} cal
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                          <p className="text-xs sm:text-sm text-gray-600 mb-2 sm:mb-3">{exercise.description}</p>
+                          {exercise.recommended && (
+                            <Badge className="bg-blue-500 text-xs">
+                              <Star className="w-2.5 h-2.5 sm:w-3 sm:h-3 mr-1" />
+                              {t.exercises.recommended}
                             </Badge>
-                          ))}
+                          )}
                         </div>
-                      </div>
-                      {med.notes && (
-                        <div>
-                          <p className="text-sm font-medium text-gray-700 mb-2">{t.medications.notes}</p>
-                          <p className="text-sm text-gray-600">{med.notes}</p>
+                        <div className="flex-shrink-0">
+                          {completedExercises.includes(exercise.id) ? (
+                            <Badge className="bg-green-500 text-xs">
+                              <Check className="w-2.5 h-2.5 sm:w-3 sm:h-3 mr-1" />
+                              <span className="hidden sm:inline">{t.exercises.completed}</span>
+                            </Badge>
+                          ) : (
+                            <Button 
+                              onClick={() => markExerciseComplete(exercise.id)}
+                              size="sm"
+                              className="bg-gradient-to-r from-green-500 to-emerald-600 text-xs h-7 sm:h-8"
+                            >
+                              <Check className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
+                              <span className="hidden sm:inline">{t.exercises.markComplete}</span>
+                            </Button>
+                          )}
                         </div>
-                      )}
-                      <div className="flex gap-2 pt-2">
-                        <Button 
-                          onClick={() => markAsTaken(med.id)}
-                          disabled={wasTakenToday(med)}
-                          className="flex-1 bg-gradient-to-r from-red-500 to-pink-600"
-                        >
-                          <Check className="w-4 h-4 mr-2" />
-                          {wasTakenToday(med) ? t.medications.alreadyTaken : t.medications.markAsTaken}
-                        </Button>
-                        <Button 
-                          variant="outline" 
-                          onClick={() => deleteMedication(med.id)}
-                          className="border-red-200 text-red-600 hover:bg-red-50"
-                        >
-                          {t.medications.remove}
-                        </Button>
                       </div>
                     </CardContent>
                   </Card>
@@ -1841,384 +1920,159 @@ export default function Home() {
             )}
           </TabsContent>
 
-          {/* Exercises Tab */}
-          <TabsContent value="exercises" className="space-y-6">
-            {!hasFeatureAccess('exercises') ? (
-              <Card className="border-2 border-purple-200 bg-gradient-to-br from-purple-50 to-pink-50">
-                <CardContent className="flex flex-col items-center justify-center py-12">
-                  <Crown className="w-16 h-16 text-purple-500 mb-4" />
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                    {language === 'pt' ? 'Recurso Premium' :
-                     language === 'en' ? 'Premium Feature' :
-                     language === 'nl' ? 'Premium Functie' :
-                     language === 'fr' ? 'Fonctionnalité Premium' :
-                     'Premium-Funktion'}
-                  </h3>
-                  <p className="text-gray-600 text-center mb-4">
-                    {language === 'pt' ? 'Faça upgrade para acessar exercícios personalizados' :
-                     language === 'en' ? 'Upgrade to access personalized exercises' :
-                     language === 'nl' ? 'Upgrade om toegang te krijgen tot gepersonaliseerde oefeningen' :
-                     language === 'fr' ? 'Mettez à niveau pour accéder aux exercices personnalisés' :
-                     'Upgrade für personalisierten Übungszugang'}
-                  </p>
+          {/* Diet Tab */}
+          <TabsContent value="diet" className="space-y-4 sm:space-y-6">
+            <div>
+              <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-gray-900">{t.diet.title}</h2>
+              <p className="text-xs sm:text-sm md:text-base text-gray-600">{t.diet.subtitle}</p>
+            </div>
+
+            {!hasFeatureAccess('diet') ? (
+              <Card className="border-purple-200 bg-gradient-to-br from-purple-50 to-pink-50">
+                <CardContent className="flex flex-col items-center justify-center py-8 sm:py-12 p-4">
+                  <div className="bg-gradient-to-br from-purple-500 to-pink-600 p-3 sm:p-4 rounded-2xl mb-3 sm:mb-4">
+                    <Sparkles className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 text-white" />
+                  </div>
+                  <h3 className="text-base sm:text-lg md:text-xl font-bold text-gray-900 mb-2">{t.diet.premiumFeature}</h3>
+                  <p className="text-xs sm:text-sm text-gray-600 text-center mb-4 sm:mb-6 max-w-md">{t.diet.premiumDescription}</p>
                   <Button 
                     onClick={() => setIsUpgradeDialogOpen(true)}
-                    className="bg-gradient-to-r from-purple-500 to-pink-600"
+                    className="bg-gradient-to-r from-purple-500 to-pink-600 text-xs sm:text-sm h-8 sm:h-9"
                   >
-                    <Crown className="w-4 h-4 mr-2" />
-                    {language === 'pt' ? 'Fazer Upgrade' :
-                     language === 'en' ? 'Upgrade Now' :
-                     language === 'nl' ? 'Nu Upgraden' :
-                     language === 'fr' ? 'Mettre à Niveau' :
-                     'Jetzt Upgraden'}
+                    <Crown className="w-3 h-3 sm:w-4 sm:h-4 mr-2" />
+                    {t.diet.upgrade}
                   </Button>
                 </CardContent>
               </Card>
             ) : (
               <>
-                <div>
-                  <h2 className="text-2xl font-bold text-gray-900 mb-2">{t.exercises.title}</h2>
-                  <p className="text-gray-600">{t.exercises.subtitle}</p>
-                </div>
+                {/* Plano Nutricional */}
+                <Card>
+                  <CardHeader className="p-3 sm:p-4 md:p-6">
+                    <CardTitle className="flex items-center gap-2 text-sm sm:text-base md:text-lg">
+                      <Apple className="w-4 h-4 sm:w-5 sm:h-5 text-red-500" />
+                      {t.diet.nutritionPlan}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-3 sm:p-4 md:p-6 pt-0">
+                    <div className="grid gap-3 sm:gap-4 md:gap-6 md:grid-cols-3">
+                      <div className="text-center p-3 sm:p-4 bg-gradient-to-br from-blue-50 to-cyan-50 rounded-lg">
+                        <div className="text-2xl sm:text-3xl font-bold text-blue-600 mb-1">{dietPlan.caloriasDiarias}</div>
+                        <p className="text-xs sm:text-sm text-gray-600">{t.diet.dailyCalories}</p>
+                      </div>
+                      <div className="text-center p-3 sm:p-4 bg-gradient-to-br from-green-50 to-emerald-50 rounded-lg">
+                        <div className="text-2xl sm:text-3xl font-bold text-green-600 mb-1">{dietPlan.imc}</div>
+                        <p className="text-xs sm:text-sm text-gray-600">IMC</p>
+                      </div>
+                      <div className="text-center p-3 sm:p-4 bg-gradient-to-br from-purple-50 to-pink-50 rounded-lg">
+                        <div className="text-base sm:text-lg font-bold text-purple-600 mb-1">{dietPlan.status}</div>
+                        <p className="text-xs sm:text-sm text-gray-600">{t.diet.status}</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
 
-                <div className="grid gap-4 md:grid-cols-2">
-                  {exercises.map((exercise) => (
-                    <Card key={exercise.id} className="hover:shadow-lg transition-shadow">
-                      <CardHeader>
-                        <div className="flex justify-between items-start">
-                          <div className="flex items-center gap-3">
-                            <div className="text-3xl">{exercise.icon}</div>
-                            <div>
-                              <CardTitle className="text-lg">{exercise.name}</CardTitle>
-                              <CardDescription>{exercise.description}</CardDescription>
-                            </div>
-                          </div>
-                          {exercise.recommended && (
-                            <Badge className="bg-blue-500">
-                              {t.exercises.recommended}
-                            </Badge>
-                          )}
-                        </div>
-                      </CardHeader>
-                      <CardContent className="space-y-4">
-                        <div className="grid grid-cols-3 gap-4 text-center">
-                          <div className="bg-blue-50 rounded-lg p-3">
-                            <Timer className="w-5 h-5 mx-auto mb-1 text-blue-600" />
-                            <div className="text-sm font-semibold text-gray-900">{exercise.duration}</div>
-                            <div className="text-xs text-gray-600">{t.exercises.duration}</div>
-                          </div>
-                          <div className="bg-orange-50 rounded-lg p-3">
-                            <Target className="w-5 h-5 mx-auto mb-1 text-orange-600" />
-                            <div className="text-sm font-semibold text-gray-900">{exercise.intensity}</div>
-                            <div className="text-xs text-gray-600">{t.exercises.intensity}</div>
-                          </div>
-                          <div className="bg-green-50 rounded-lg p-3">
-                            <Activity className="w-5 h-5 mx-auto mb-1 text-green-600" />
-                            <div className="text-sm font-semibold text-gray-900">{exercise.calories}</div>
-                            <div className="text-xs text-gray-600">{t.exercises.calories}</div>
-                          </div>
-                        </div>
-
-                        <Button
-                          onClick={() => markExerciseComplete(exercise.id)}
-                          disabled={completedExercises.includes(exercise.id)}
-                          className="w-full bg-gradient-to-r from-blue-500 to-cyan-600"
+                {/* Análise de Refeições - PREMIUM/ELITE */}
+                {hasFeatureAccess('mealAnalysis') && (
+                  <Card className="border-purple-200 bg-gradient-to-br from-purple-50 to-pink-50">
+                    <CardHeader className="p-3 sm:p-4 md:p-6">
+                      <CardTitle className="flex items-center gap-2 text-sm sm:text-base md:text-lg">
+                        <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 text-purple-600" />
+                        {t.diet.mealAnalysis}
+                      </CardTitle>
+                      <CardDescription className="text-xs sm:text-sm">{t.diet.mealAnalysisDescription}</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-3 sm:space-y-4 p-3 sm:p-4 md:p-6 pt-0">
+                      <div className="flex flex-col sm:flex-row gap-2">
+                        <Textarea
+                          placeholder={t.diet.mealPlaceholder}
+                          value={mealDescription}
+                          onChange={(e) => setMealDescription(e.target.value)}
+                          className="flex-1 text-sm"
+                          rows={3}
+                        />
+                        <Button 
+                          onClick={handleMealAnalysis}
+                          disabled={isAnalyzing || !mealDescription.trim()}
+                          className="bg-gradient-to-r from-purple-500 to-pink-600 text-xs sm:text-sm h-8 sm:h-9 w-full sm:w-auto"
                         >
-                          {completedExercises.includes(exercise.id) ? (
+                          {isAnalyzing ? (
                             <>
-                              <Check className="w-4 h-4 mr-2" />
-                              {t.exercises.completed}
+                              <Clock className="w-3 h-3 sm:w-4 sm:h-4 mr-2 animate-spin" />
+                              {t.diet.analyzing}
                             </>
                           ) : (
                             <>
-                              <Dumbbell className="w-4 h-4 mr-2" />
-                              {t.exercises.markComplete}
+                              <Send className="w-3 h-3 sm:w-4 sm:h-4 mr-2" />
+                              {t.diet.analyze}
                             </>
                           )}
                         </Button>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              </>
-            )}
-          </TabsContent>
-
-          {/* Diet Tab */}
-          <TabsContent value="diet" className="space-y-6">
-            {!hasFeatureAccess('diet') ? (
-              <Card className="border-2 border-purple-200 bg-gradient-to-br from-purple-50 to-pink-50">
-                <CardContent className="flex flex-col items-center justify-center py-12">
-                  <Crown className="w-16 h-16 text-purple-500 mb-4" />
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                    {language === 'pt' ? 'Recurso Premium' :
-                     language === 'en' ? 'Premium Feature' :
-                     language === 'nl' ? 'Premium Functie' :
-                     language === 'fr' ? 'Fonctionnalité Premium' :
-                     'Premium-Funktion'}
-                  </h3>
-                  <p className="text-gray-600 text-center mb-4">
-                    {language === 'pt' ? 'Faça upgrade para acessar plano de dieta personalizado' :
-                     language === 'en' ? 'Upgrade to access personalized diet plan' :
-                     language === 'nl' ? 'Upgrade om toegang te krijgen tot gepersonaliseerd dieetplan' :
-                     language === 'fr' ? 'Mettez à niveau pour accéder au plan alimentaire personnalisé' :
-                     'Upgrade für personalisierten Ernährungsplan'}
-                  </p>
-                  <Button 
-                    onClick={() => setIsUpgradeDialogOpen(true)}
-                    className="bg-gradient-to-r from-purple-500 to-pink-600"
-                  >
-                    <Crown className="w-4 h-4 mr-2" />
-                    {language === 'pt' ? 'Fazer Upgrade' :
-                     language === 'en' ? 'Upgrade Now' :
-                     language === 'nl' ? 'Nu Upgraden' :
-                     language === 'fr' ? 'Mettre à Niveau' :
-                     'Jetzt Upgraden'}
-                  </Button>
-                </CardContent>
-              </Card>
-            ) : (
-              <>
-                <div>
-                  <h2 className="text-2xl font-bold text-gray-900 mb-2">{t.diet.title}</h2>
-                  <p className="text-gray-600">{t.diet.subtitle}</p>
-                </div>
-
-                {/* Cards de Estatísticas */}
-                <div className="grid gap-4 md:grid-cols-3">
-                  <Card className="bg-gradient-to-br from-green-500 to-emerald-600 text-white border-0">
-                    <CardHeader className="pb-3">
-                      <CardTitle className="text-sm font-medium flex items-center gap-2">
-                        <Target className="w-4 h-4" />
-                        {t.diet.dailyGoal}
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="text-3xl font-bold">{dietPlan?.caloriasDiarias}</div>
-                      <p className="text-xs text-green-100 mt-1">{t.diet.caloriesPerDay}</p>
-                    </CardContent>
-                  </Card>
-
-                  <Card className="bg-gradient-to-br from-blue-500 to-cyan-600 text-white border-0">
-                    <CardHeader className="pb-3">
-                      <CardTitle className="text-sm font-medium flex items-center gap-2">
-                        <Activity className="w-4 h-4" />
-                        {t.diet.yourBMI}
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="text-3xl font-bold">{dietPlan?.imc}</div>
-                      <p className="text-xs text-blue-100 mt-1">{dietPlan?.status}</p>
-                    </CardContent>
-                  </Card>
-
-                  <Card className="bg-gradient-to-br from-purple-500 to-pink-600 text-white border-0">
-                    <CardHeader className="pb-3">
-                      <CardTitle className="text-sm font-medium flex items-center gap-2">
-                        <Utensils className="w-4 h-4" />
-                        {t.diet.meals}
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="text-3xl font-bold">5-6</div>
-                      <p className="text-xs text-purple-100 mt-1">{t.diet.mealsPerDay}</p>
-                    </CardContent>
-                  </Card>
-                </div>
-
-                {/* Analisador de Refeições - PREMIUM */}
-                {hasFeatureAccess('mealAnalysis') && (
-                  <Card className="border-2 border-purple-200 bg-gradient-to-br from-purple-50 to-pink-50">
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2">
-                        <Sparkles className="w-5 h-5 text-purple-600" />
-                        {language === 'pt' ? 'Analisador de Refeições AI' : 
-                         language === 'en' ? 'AI Meal Analyzer' :
-                         language === 'nl' ? 'AI Maaltijdanalyse' :
-                         language === 'fr' ? 'Analyseur de Repas IA' :
-                         'KI-Mahlzeitenanalyse'}
-                        <Badge className="bg-gradient-to-r from-purple-500 to-pink-600 text-white">
-                          Premium
-                        </Badge>
-                      </CardTitle>
-                      <CardDescription>
-                        {language === 'pt' ? 'Descreva o que você comeu e receba uma análise completa da sua refeição' :
-                         language === 'en' ? 'Describe what you ate and receive a complete analysis of your meal' :
-                         language === 'nl' ? 'Beschrijf wat je hebt gegeten en ontvang een volledige analyse van je maaltijd' :
-                         language === 'fr' ? 'Décrivez ce que vous avez mangé et recevez une analyse complète de votre repas' :
-                         'Beschreiben Sie, was Sie gegessen haben, und erhalten Sie eine vollständige Analyse Ihrer Mahlzeit'}
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      <div className="flex gap-2">
-                        <Textarea
-                          placeholder={language === 'pt' ? 'Ex: Arroz, feijão, frango grelhado e salada...' :
-                                     language === 'en' ? 'Ex: Rice, beans, grilled chicken and salad...' :
-                                     language === 'nl' ? 'Bijv: Rijst, bonen, gegrilde kip en salade...' :
-                                     language === 'fr' ? 'Ex: Riz, haricots, poulet grillé et salade...' :
-                                     'Z.B: Reis, Bohnen, gegrilltes Hähnchen und Salat...'}
-                          value={mealDescription}
-                          onChange={(e) => setMealDescription(e.target.value)}
-                          className="flex-1 min-h-[100px]"
-                        />
                       </div>
-                      <Button
-                        onClick={handleMealAnalysis}
-                        disabled={!mealDescription.trim() || isAnalyzing}
-                        className="w-full bg-gradient-to-r from-purple-500 to-pink-600"
-                      >
-                        {isAnalyzing ? (
-                          <>
-                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
-                            {language === 'pt' ? 'Analisando...' :
-                             language === 'en' ? 'Analyzing...' :
-                             language === 'nl' ? 'Analyseren...' :
-                             language === 'fr' ? 'Analyse...' :
-                             'Analysieren...'}
-                          </>
-                        ) : (
-                          <>
-                            <Sparkles className="w-4 h-4 mr-2" />
-                            {language === 'pt' ? 'Analisar Refeição' :
-                             language === 'en' ? 'Analyze Meal' :
-                             language === 'nl' ? 'Maaltijd Analyseren' :
-                             language === 'fr' ? 'Analyser le Repas' :
-                             'Mahlzeit Analysieren'}
-                          </>
-                        )}
-                      </Button>
 
                       {/* Histórico de Análises */}
                       {mealAnalyses.length > 0 && (
-                        <div className="space-y-3 mt-6">
-                          <h4 className="font-semibold text-gray-900">
-                            {language === 'pt' ? 'Análises Recentes' :
-                             language === 'en' ? 'Recent Analyses' :
-                             language === 'nl' ? 'Recente Analyses' :
-                             language === 'fr' ? 'Analyses Récentes' :
-                             'Neueste Analysen'}
-                          </h4>
+                        <div className="space-y-2 sm:space-y-3 mt-4 sm:mt-6">
+                          <h4 className="font-semibold text-gray-900 text-sm sm:text-base">{t.diet.analysisHistory}</h4>
                           {mealAnalyses.map((analysis) => (
-                            <Card key={analysis.id} className="border-2 border-gray-200">
-                              <CardHeader className="pb-3">
-                                <div className="flex justify-between items-start">
-                                  <div className="flex-1">
-                                    <CardTitle className="text-base">{analysis.mealDescription}</CardTitle>
-                                    <CardDescription className="text-xs">
-                                      {new Date(analysis.timestamp).toLocaleDateString(language)}
-                                    </CardDescription>
+                            <Card key={analysis.id} className="bg-white">
+                              <CardContent className="p-3 sm:p-4">
+                                <div className="flex items-start justify-between mb-2 sm:mb-3 gap-2">
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-xs sm:text-sm text-gray-600 mb-2">{analysis.mealDescription}</p>
+                                    <div className="flex items-center gap-3 sm:gap-4 text-xs sm:text-sm flex-wrap">
+                                      <div className="flex items-center gap-1">
+                                        <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center font-bold text-sm sm:text-base ${
+                                          analysis.score >= 80 ? 'bg-green-100 text-green-600' :
+                                          analysis.score >= 60 ? 'bg-yellow-100 text-yellow-600' :
+                                          'bg-red-100 text-red-600'
+                                        }`}>
+                                          {analysis.score}
+                                        </div>
+                                      </div>
+                                      <div className="text-gray-600">
+                                        ~{analysis.estimatedCalories} cal
+                                      </div>
+                                      <div className="text-[10px] sm:text-xs text-gray-500">
+                                        {new Date(analysis.timestamp).toLocaleDateString()}
+                                      </div>
+                                    </div>
                                   </div>
                                   <Button
-                                    variant="ghost"
-                                    size="sm"
                                     onClick={() => handleDeleteMealAnalysis(analysis.id)}
-                                    className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                                    size="sm"
+                                    variant="ghost"
+                                    className="flex-shrink-0 h-7 w-7 sm:h-8 sm:w-8 p-0"
                                   >
-                                    <Trash2 className="w-4 h-4" />
+                                    <Trash2 className="w-3 h-3 sm:w-4 sm:h-4 text-red-500" />
                                   </Button>
                                 </div>
-                              </CardHeader>
-                              <CardContent className="space-y-4">
-                                {/* Score Visual */}
-                                <div className="flex items-center gap-4">
-                                  <div className="relative w-20 h-20">
-                                    <svg className="w-20 h-20 transform -rotate-90">
-                                      <circle
-                                        cx="40"
-                                        cy="40"
-                                        r="32"
-                                        stroke="#e5e7eb"
-                                        strokeWidth="8"
-                                        fill="none"
-                                      />
-                                      <circle
-                                        cx="40"
-                                        cy="40"
-                                        r="32"
-                                        stroke={analysis.score >= 80 ? '#10b981' : analysis.score >= 60 ? '#f59e0b' : '#ef4444'}
-                                        strokeWidth="8"
-                                        fill="none"
-                                        strokeDasharray={`${(analysis.score / 100) * 201} 201`}
-                                        strokeLinecap="round"
-                                      />
-                                    </svg>
-                                    <div className="absolute inset-0 flex items-center justify-center">
-                                      <span className="text-xl font-bold text-gray-900">{analysis.score}</span>
-                                    </div>
+
+                                <div className="space-y-1.5 sm:space-y-2 text-xs sm:text-sm">
+                                  <div>
+                                    <p className="font-semibold text-green-600 mb-1">✅ {t.diet.positivePoints}:</p>
+                                    <ul className="list-disc list-inside text-gray-600 space-y-0.5 sm:space-y-1">
+                                      {analysis.positivePoints.map((point, idx) => (
+                                        <li key={idx}>{point}</li>
+                                      ))}
+                                    </ul>
                                   </div>
-                                  <div className="flex-1">
-                                    <div className="flex items-center gap-2 mb-1">
-                                      <Star className={`w-5 h-5 ${analysis.score >= 80 ? 'text-green-500' : analysis.score >= 60 ? 'text-amber-500' : 'text-red-500'}`} />
-                                      <span className="font-semibold text-gray-900">
-                                        {analysis.score >= 80 ? (language === 'pt' ? 'Excelente!' : language === 'en' ? 'Excellent!' : language === 'nl' ? 'Uitstekend!' : language === 'fr' ? 'Excellent!' : 'Ausgezeichnet!') :
-                                         analysis.score >= 60 ? (language === 'pt' ? 'Bom' : language === 'en' ? 'Good' : language === 'nl' ? 'Goed' : language === 'fr' ? 'Bon' : 'Gut') :
-                                         (language === 'pt' ? 'Pode Melhorar' : language === 'en' ? 'Can Improve' : language === 'nl' ? 'Kan Verbeteren' : language === 'fr' ? 'Peut Améliorer' : 'Kann Verbessern')}
-                                      </span>
-                                    </div>
-                                    <p className="text-sm text-gray-600">
-                                      {language === 'pt' ? `~${analysis.estimatedCalories} calorias` :
-                                       language === 'en' ? `~${analysis.estimatedCalories} calories` :
-                                       language === 'nl' ? `~${analysis.estimatedCalories} calorieën` :
-                                       language === 'fr' ? `~${analysis.estimatedCalories} calories` :
-                                       `~${analysis.estimatedCalories} Kalorien`}
-                                    </p>
+                                  <div>
+                                    <p className="font-semibold text-orange-600 mb-1">⚠️ {t.diet.improvements}:</p>
+                                    <ul className="list-disc list-inside text-gray-600 space-y-0.5 sm:space-y-1">
+                                      {analysis.improvements.map((improvement, idx) => (
+                                        <li key={idx}>{improvement}</li>
+                                      ))}
+                                    </ul>
                                   </div>
-                                </div>
-
-                                {/* Pontos Positivos */}
-                                <div className="space-y-2">
-                                  <h5 className="text-sm font-semibold text-green-700 flex items-center gap-1">
-                                    <TrendingUp className="w-4 h-4" />
-                                    {language === 'pt' ? 'Pontos Positivos' :
-                                     language === 'en' ? 'Positive Points' :
-                                     language === 'nl' ? 'Positieve Punten' :
-                                     language === 'fr' ? 'Points Positifs' :
-                                     'Positive Punkte'}
-                                  </h5>
-                                  <ul className="space-y-1">
-                                    {analysis.positivePoints.map((point, idx) => (
-                                      <li key={idx} className="text-sm text-gray-700 flex items-start gap-2">
-                                        <Check className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
-                                        <span>{point}</span>
-                                      </li>
-                                    ))}
-                                  </ul>
-                                </div>
-
-                                {/* Melhorias */}
-                                <div className="space-y-2">
-                                  <h5 className="text-sm font-semibold text-amber-700 flex items-center gap-1">
-                                    <TrendingDown className="w-4 h-4" />
-                                    {language === 'pt' ? 'Pode Melhorar' :
-                                     language === 'en' ? 'Can Improve' :
-                                     language === 'nl' ? 'Kan Verbeteren' :
-                                     language === 'fr' ? 'Peut Améliorer' :
-                                     'Kann Verbessern'}
-                                  </h5>
-                                  <ul className="space-y-1">
-                                    {analysis.improvements.map((improvement, idx) => (
-                                      <li key={idx} className="text-sm text-gray-700 flex items-start gap-2">
-                                        <Minus className="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0" />
-                                        <span>{improvement}</span>
-                                      </li>
-                                    ))}
-                                  </ul>
-                                </div>
-
-                                {/* Recomendações */}
-                                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                                  <h5 className="text-sm font-semibold text-blue-900 mb-2">
-                                    💡 {language === 'pt' ? 'Recomendações' :
-                                        language === 'en' ? 'Recommendations' :
-                                        language === 'nl' ? 'Aanbevelingen' :
-                                        language === 'fr' ? 'Recommandations' :
-                                        'Empfehlungen'}
-                                  </h5>
-                                  <ul className="space-y-1">
-                                    {analysis.recommendations.map((rec, idx) => (
-                                      <li key={idx} className="text-xs text-blue-800">• {rec}</li>
-                                    ))}
-                                  </ul>
+                                  <div>
+                                    <p className="font-semibold text-blue-600 mb-1">💡 {t.diet.recommendations}:</p>
+                                    <ul className="list-disc list-inside text-gray-600 space-y-0.5 sm:space-y-1">
+                                      {analysis.recommendations.map((rec, idx) => (
+                                        <li key={idx}>{rec}</li>
+                                      ))}
+                                    </ul>
+                                  </div>
                                 </div>
                               </CardContent>
                             </Card>
@@ -2229,38 +2083,40 @@ export default function Home() {
                   </Card>
                 )}
 
-                {/* Recomendações de Refeições */}
+                {/* Recomendações Gerais */}
                 <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Apple className="w-5 h-5 text-green-600" />
+                  <CardHeader className="p-3 sm:p-4 md:p-6">
+                    <CardTitle className="flex items-center gap-2 text-sm sm:text-base md:text-lg">
+                      <Salad className="w-4 h-4 sm:w-5 sm:h-5 text-green-500" />
                       {t.diet.recommendations}
                     </CardTitle>
-                    <CardDescription>{t.diet.recommendationsSubtitle}</CardDescription>
                   </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="space-y-3">
-                      {[
-                        { icon: '🥗', title: t.diet.breakfast, desc: t.diet.breakfastDesc },
-                        { icon: '🍎', title: t.diet.morningSnack, desc: t.diet.morningSnackDesc },
-                        { icon: '🍗', title: t.diet.lunch, desc: t.diet.lunchDesc },
-                        { icon: '🥤', title: t.diet.afternoonSnack, desc: t.diet.afternoonSnackDesc },
-                        { icon: '🐟', title: t.diet.dinner, desc: t.diet.dinnerDesc },
-                      ].map((meal, idx) => (
-                        <div key={idx} className="flex gap-4 p-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg border border-green-200">
-                          <div className="text-3xl">{meal.icon}</div>
-                          <div className="flex-1">
-                            <h4 className="font-semibold text-gray-900 mb-1">{meal.title}</h4>
-                            <p className="text-sm text-gray-600">{meal.desc}</p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-
-                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-6">
-                      <p className="text-sm text-blue-800">
-                        💧 <strong>{t.diet.hydration}:</strong> {t.diet.hydrationTip}
-                      </p>
+                  <CardContent className="p-3 sm:p-4 md:p-6 pt-0">
+                    <div className="grid gap-3 sm:gap-4 md:grid-cols-2">
+                      <div className="p-3 sm:p-4 bg-green-50 rounded-lg border border-green-200">
+                        <h4 className="font-semibold text-green-900 mb-2 flex items-center gap-2 text-xs sm:text-sm">
+                          <TrendingUp className="w-3 h-3 sm:w-4 sm:h-4" />
+                          {t.diet.recommended}
+                        </h4>
+                        <ul className="space-y-0.5 sm:space-y-1 text-xs sm:text-sm text-green-800">
+                          <li>• {t.diet.recommendedItems[0]}</li>
+                          <li>• {t.diet.recommendedItems[1]}</li>
+                          <li>• {t.diet.recommendedItems[2]}</li>
+                          <li>• {t.diet.recommendedItems[3]}</li>
+                        </ul>
+                      </div>
+                      <div className="p-3 sm:p-4 bg-red-50 rounded-lg border border-red-200">
+                        <h4 className="font-semibold text-red-900 mb-2 flex items-center gap-2 text-xs sm:text-sm">
+                          <TrendingDown className="w-3 h-3 sm:w-4 sm:h-4" />
+                          {t.diet.avoid}
+                        </h4>
+                        <ul className="space-y-0.5 sm:space-y-1 text-xs sm:text-sm text-red-800">
+                          <li>• {t.diet.avoidItems[0]}</li>
+                          <li>• {t.diet.avoidItems[1]}</li>
+                          <li>• {t.diet.avoidItems[2]}</li>
+                          <li>• {t.diet.avoidItems[3]}</li>
+                        </ul>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
@@ -2268,149 +2124,181 @@ export default function Home() {
             )}
           </TabsContent>
 
-          {/* Coach Tab - SISTEMA INTELIGENTE MELHORADO */}
-          <TabsContent value="coach" className="space-y-6">
+          {/* Coach Tab */}
+          <TabsContent value="coach" className="space-y-4 sm:space-y-6">
+            <div>
+              <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-gray-900">{t.coach.title}</h2>
+              <p className="text-xs sm:text-sm md:text-base text-gray-600">{t.coach.subtitle}</p>
+            </div>
+
             {!hasFeatureAccess('coach') ? (
-              <Card className="border-2 border-purple-200 bg-gradient-to-br from-purple-50 to-pink-50">
-                <CardContent className="flex flex-col items-center justify-center py-12">
-                  <Crown className="w-16 h-16 text-purple-500 mb-4" />
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                    {language === 'pt' ? 'Recurso Premium' :
-                     language === 'en' ? 'Premium Feature' :
-                     language === 'nl' ? 'Premium Functie' :
-                     language === 'fr' ? 'Fonctionnalité Premium' :
-                     'Premium-Funktion'}
-                  </h3>
-                  <p className="text-gray-600 text-center mb-4">
-                    {language === 'pt' ? 'Faça upgrade para conversar com seu Coach AI' :
-                     language === 'en' ? 'Upgrade to chat with your AI Coach' :
-                     language === 'nl' ? 'Upgrade om te chatten met uw AI Coach' :
-                     language === 'fr' ? 'Mettez à niveau pour discuter avec votre Coach IA' :
-                     'Upgrade um mit Ihrem KI-Coach zu chatten'}
-                  </p>
+              <Card className="border-purple-200 bg-gradient-to-br from-purple-50 to-pink-50">
+                <CardContent className="flex flex-col items-center justify-center py-8 sm:py-12 p-4">
+                  <div className="bg-gradient-to-br from-purple-500 to-pink-600 p-3 sm:p-4 rounded-2xl mb-3 sm:mb-4">
+                    <Sparkles className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 text-white" />
+                  </div>
+                  <h3 className="text-base sm:text-lg md:text-xl font-bold text-gray-900 mb-2">{t.coach.premiumFeature}</h3>
+                  <p className="text-xs sm:text-sm text-gray-600 text-center mb-4 sm:mb-6 max-w-md">{t.coach.premiumDescription}</p>
                   <Button 
                     onClick={() => setIsUpgradeDialogOpen(true)}
-                    className="bg-gradient-to-r from-purple-500 to-pink-600"
+                    className="bg-gradient-to-r from-purple-500 to-pink-600 text-xs sm:text-sm h-8 sm:h-9"
                   >
-                    <Crown className="w-4 h-4 mr-2" />
-                    {language === 'pt' ? 'Fazer Upgrade' :
-                     language === 'en' ? 'Upgrade Now' :
-                     language === 'nl' ? 'Nu Upgraden' :
-                     language === 'fr' ? 'Mettre à Niveau' :
-                     'Jetzt Upgraden'}
+                    <Crown className="w-3 h-3 sm:w-4 sm:h-4 mr-2" />
+                    {t.coach.upgrade}
                   </Button>
                 </CardContent>
               </Card>
             ) : (
-              <>
-                <div>
-                  <h2 className="text-2xl font-bold text-gray-900 mb-2">{t.coach.title}</h2>
-                  <p className="text-gray-600">{t.coach.subtitle}</p>
-                </div>
-
-                {/* DICAS DO COACH */}
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                  {coachTips.map((tip) => (
-                    <Card key={tip.id} className="hover:shadow-lg transition-shadow border-2 border-purple-100">
-                      <CardHeader className="pb-3">
-                        <CardTitle className="text-base flex items-center gap-2">
-                          <span className="text-2xl">{tip.categoria.split(' ')[0]}</span>
-                          <span className="text-gray-900">{tip.categoria.split(' ').slice(1).join(' ')}</span>
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent className="space-y-3">
-                        <div>
-                          <h4 className="font-bold text-gray-900 mb-2 text-sm">{tip.titulo}</h4>
-                          <p className="text-sm text-gray-600 leading-relaxed">{tip.mensagem}</p>
+              <Card className="border-purple-200">
+                <CardHeader className="bg-gradient-to-r from-purple-500 to-pink-600 text-white p-3 sm:p-4 md:p-6">
+                  <CardTitle className="flex items-center gap-2 text-sm sm:text-base md:text-lg">
+                    <MessageCircle className="w-4 h-4 sm:w-5 sm:h-5" />
+                    {t.coach.chatTitle}
+                  </CardTitle>
+                  <CardDescription className="text-purple-100 text-xs sm:text-sm">{t.coach.chatDescription}</CardDescription>
+                </CardHeader>
+                <CardContent className="p-0">
+                  {/* Chat Messages */}
+                  <div className="h-[300px] sm:h-[400px] overflow-y-auto p-3 sm:p-4 md:p-6 space-y-3 sm:space-y-4">
+                    {chatHistory.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center h-full text-center">
+                        <div className="bg-gradient-to-br from-purple-100 to-pink-100 p-4 sm:p-6 rounded-2xl mb-3 sm:mb-4">
+                          <MessageCircle className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 text-purple-600" />
                         </div>
-                        <div className="pt-3 border-t border-purple-100 bg-purple-50 rounded-lg p-3 -mx-3">
-                          <p className="text-xs font-medium text-purple-900">
-                            <span className="text-base mr-1">💡</span>
-                            <strong>
-                              {language === 'pt' ? 'Dica' :
-                               language === 'en' ? 'Tip' :
-                               language === 'nl' ? 'Tip' :
-                               language === 'fr' ? 'Conseil' :
-                               'Tipp'}:
-                            </strong> {tip.dica}
-                          </p>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <MessageCircle className="w-5 h-5 text-purple-600" />
-                      {t.coach.chatTitle}
-                    </CardTitle>
-                    <CardDescription>{t.coach.chatSubtitle}</CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="h-[400px] overflow-y-auto space-y-3 p-4 bg-gray-50 rounded-lg">
-                      {chatHistory.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center h-full text-gray-400">
-                          <MessageCircle className="w-12 h-12 mb-3" />
-                          <p className="text-sm">{t.coach.startConversation}</p>
-                        </div>
-                      ) : (
-                        <>
-                          {chatHistory.map((msg, idx) => (
-                            <div
-                              key={idx}
-                              className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
-                            >
-                              <div
-                                className={`max-w-[80%] p-3 rounded-lg ${
-                                  msg.role === 'user'
-                                    ? 'bg-gradient-to-r from-purple-500 to-pink-600 text-white'
-                                    : 'bg-white border border-gray-200 text-gray-900'
-                                }`}
-                              >
-                                <p className="text-sm">{msg.message}</p>
+                        <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-2">{t.coach.welcomeTitle}</h3>
+                        <p className="text-xs sm:text-sm text-gray-600 max-w-md px-4">{t.coach.welcomeMessage}</p>
+                      </div>
+                    ) : (
+                      <>
+                        {chatHistory.map((msg, idx) => (
+                          <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                            <div className={`max-w-[85%] sm:max-w-[80%] p-3 sm:p-4 rounded-2xl ${
+                              msg.role === 'user' 
+                                ? 'bg-gradient-to-r from-purple-500 to-pink-600 text-white' 
+                                : 'bg-gray-100 text-gray-900'
+                            }`}>
+                              <p className="text-xs sm:text-sm whitespace-pre-wrap">{msg.message}</p>
+                            </div>
+                          </div>
+                        ))}
+                        {isCoachTyping && (
+                          <div className="flex justify-start">
+                            <div className="bg-gray-100 p-3 sm:p-4 rounded-2xl">
+                              <div className="flex gap-1">
+                                <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                                <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                                <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
                               </div>
                             </div>
-                          ))}
-                          {isCoachTyping && (
-                            <div className="flex justify-start">
-                              <div className="bg-white border border-gray-200 text-gray-900 p-3 rounded-lg">
-                                <div className="flex gap-1">
-                                  <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-                                  <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-                                  <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
-                                </div>
-                              </div>
-                            </div>
-                          )}
-                        </>
-                      )}
-                    </div>
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
 
-                    <form onSubmit={handleCoachMessage} className="flex gap-2">
+                  {/* Chat Input */}
+                  <form onSubmit={handleCoachMessage} className="p-3 sm:p-4 border-t">
+                    <div className="flex gap-2">
                       <Input
+                        placeholder={t.coach.messagePlaceholder}
                         value={coachMessage}
                         onChange={(e) => setCoachMessage(e.target.value)}
-                        placeholder={t.coach.messagePlaceholder}
-                        className="flex-1"
                         disabled={isCoachTyping}
+                        className="flex-1 text-sm h-9 sm:h-10"
                       />
-                      <Button
-                        type="submit"
-                        disabled={!coachMessage.trim() || isCoachTyping}
-                        className="bg-gradient-to-r from-purple-500 to-pink-600"
+                      <Button 
+                        type="submit" 
+                        disabled={isCoachTyping || !coachMessage.trim()}
+                        className="bg-gradient-to-r from-purple-500 to-pink-600 h-9 sm:h-10 px-3 sm:px-4"
                       >
-                        <Send className="w-4 h-4" />
+                        <Send className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                       </Button>
-                    </form>
-                  </CardContent>
-                </Card>
-              </>
+                    </div>
+                  </form>
+                </CardContent>
+              </Card>
             )}
           </TabsContent>
         </Tabs>
       </main>
+
+      {/* Upgrade Dialog */}
+      <Dialog open={isUpgradeDialogOpen} onOpenChange={setIsUpgradeDialogOpen}>
+        <DialogContent className="max-w-[95vw] sm:max-w-3xl md:max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader className="p-3 sm:p-4">
+            <DialogTitle className="text-lg sm:text-xl md:text-2xl">{t.upgrade.title}</DialogTitle>
+            <DialogDescription className="text-xs sm:text-sm">{t.upgrade.subtitle}</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-3 sm:gap-4 py-3 sm:py-4 px-3 sm:px-4">
+            {PLANS.map((plan) => (
+              <div
+                key={plan.id}
+                className={`relative cursor-pointer rounded-xl border-2 transition-all hover:shadow-lg ${
+                  userProfile.plan === plan.id
+                    ? 'border-green-500 bg-green-50'
+                    : 'border-gray-200 hover:border-gray-300'
+                } ${plan.highlighted ? 'ring-2 ring-purple-500 ring-offset-2' : ''}`}
+              >
+                {plan.highlighted && (
+                  <div className="absolute -top-2 sm:-top-3 left-1/2 -translate-x-1/2">
+                    <Badge className="bg-gradient-to-r from-purple-500 to-pink-600 text-white px-2 sm:px-4 text-xs">
+                      <Sparkles className="w-2.5 h-2.5 sm:w-3 sm:h-3 mr-1" />
+                      {t.upgrade.mostPopular}
+                    </Badge>
+                  </div>
+                )}
+
+                {userProfile.plan === plan.id && (
+                  <div className="absolute -top-2 sm:-top-3 right-3 sm:right-4">
+                    <Badge className="bg-green-500 text-white px-2 sm:px-4 text-xs">
+                      <Check className="w-2.5 h-2.5 sm:w-3 sm:h-3 mr-1" />
+                      {t.upgrade.currentPlan}
+                    </Badge>
+                  </div>
+                )}
+
+                <div className="p-4 sm:p-6 space-y-3 sm:space-y-4">
+                  <div className="flex items-start justify-between">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        {plan.id === 'essencial' && <Shield className="w-4 h-4 sm:w-5 sm:h-5 text-gray-600" />}
+                        {plan.id === 'premium' && <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 text-purple-600" />}
+                        {plan.id === 'elite' && <Crown className="w-4 h-4 sm:w-5 sm:h-5 text-amber-600" />}
+                        <h4 className="text-base sm:text-lg md:text-xl font-bold text-gray-900">{plan.name}</h4>
+                      </div>
+                      <p className="text-xs sm:text-sm text-gray-600">{plan.tagline}</p>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-lg sm:text-xl md:text-2xl font-bold text-gray-900">
+                        {plan.price === 0 ? t.common.free : `${getCurrencyInfo(userCurrency).symbol}${plan.price.toFixed(2)}`}
+                      </div>
+                      <div className="text-xs text-gray-600">{plan.period}</div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5 sm:space-y-2">
+                    {plan.features.map((feature, idx) => (
+                      <div key={idx} className="flex items-start gap-2 text-xs sm:text-sm">
+                        <Check className="w-3 h-3 sm:w-4 sm:h-4 text-green-600 mt-0.5 flex-shrink-0" />
+                        <span className="text-gray-700">{feature}</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  {userProfile.plan !== plan.id && (
+                    <Button
+                      onClick={() => handleChangePlan(plan.id)}
+                      className={`w-full text-xs sm:text-sm h-8 sm:h-9 ${plan.highlighted ? 'bg-gradient-to-r from-purple-500 to-pink-600' : ''}`}
+                    >
+                      {plan.price === 0 ? t.upgrade.downgrade : t.upgrade.selectPlan}
+                    </Button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
