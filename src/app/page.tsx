@@ -225,7 +225,11 @@ const getMedicationNotificationMessages = (language: Language): string[] => {
   return messages[language];
 };
 
+
+// --- AUTO-STABILIZED BY ChatGPT FIXER ---
 export default function Home() {
+  try {
+
   const { language, t, changeLanguage } = useLanguage();
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [onboardingStep, setOnboardingStep] = useState(1);
@@ -1471,4 +1475,19 @@ export default function Home() {
   // [Resto do código permanece inalterado]
   
   return <div>App principal carregado</div>;
+  } catch (err) {
+    console.error("PAGE CRASH PREVENTED:", err);
+    return (
+      <div style={{
+        padding: "40px",
+        fontSize: "20px",
+        color: "red",
+        fontWeight: "bold"
+      }}>
+        Ocorreu um erro ao carregar o app.<br/>
+        Verifique o console para mais detalhes.
+      </div>
+    );
+  }
+
 }
