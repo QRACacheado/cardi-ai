@@ -244,22 +244,18 @@ export default function Home() {
   const [isCoachTyping, setIsCoachTyping] = useState(false);
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>('default');
-  const [unitSystem, setUnitSystem] = useState<'metric' | 'imperial'>('metric');
-  const [noMedications, setNoMedications] = useState(false);
 
   // Dados do onboarding
   const [onboardingData, setOnboardingData] = useState({
     age: '',
     weight: '',
     height: '',
-    heightFeet: '',
-    heightInches: '',
     medications: [''],
     medicationCount: '0',
     selectedPlan: 'premium' as 'essencial' | 'premium' | 'elite',
   });
 
-  // Planos disponíveis - preços fixos independente da moeda
+  // Planos disponíveis (agora com traduções)
   const PLANS: Plan[] = [
     {
       id: 'essencial',
@@ -292,30 +288,6 @@ export default function Home() {
       color: 'from-amber-500 to-orange-600',
     },
   ];
-
-  // Conversão de unidades
-  const convertWeight = (value: number, from: 'kg' | 'lbs', to: 'kg' | 'lbs'): number => {
-    if (from === to) return value;
-    if (from === 'kg' && to === 'lbs') return value * 2.20462;
-    return value / 2.20462; // lbs to kg
-  };
-
-  const convertHeight = (value: number, from: 'cm' | 'inches', to: 'cm' | 'inches'): number => {
-    if (from === to) return value;
-    if (from === 'cm' && to === 'inches') return value / 2.54;
-    return value * 2.54; // inches to cm
-  };
-
-  const feetAndInchesToCm = (feet: number, inches: number): number => {
-    return (feet * 12 + inches) * 2.54;
-  };
-
-  const cmToFeetAndInches = (cm: number): { feet: number; inches: number } => {
-    const totalInches = cm / 2.54;
-    const feet = Math.floor(totalInches / 12);
-    const inches = Math.round(totalInches % 12);
-    return { feet, inches };
-  };
 
   // Sistema de Notificações - PREMIUM FEATURE
   useEffect(() => {
@@ -769,24 +741,12 @@ export default function Home() {
 
   // Finalizar onboarding
   const completeOnboarding = () => {
-    // Converter para métrico se necessário
-    let weightInKg = parseFloat(onboardingData.weight);
-    let heightInCm = parseFloat(onboardingData.height);
-
-    if (unitSystem === 'imperial') {
-      weightInKg = convertWeight(weightInKg, 'lbs', 'kg');
-      heightInCm = feetAndInchesToCm(
-        parseFloat(onboardingData.heightFeet),
-        parseFloat(onboardingData.heightInches)
-      );
-    }
-
     const profile: UserProfile = {
       age: parseInt(onboardingData.age),
-      weight: weightInKg,
-      height: heightInCm,
-      medications: noMedications ? [] : onboardingData.medications.filter(m => m.trim() !== ''),
-      medicationCount: noMedications ? 0 : onboardingData.medications.filter(m => m.trim() !== '').length,
+      weight: parseFloat(onboardingData.weight),
+      height: parseFloat(onboardingData.height),
+      medications: onboardingData.medications.filter(m => m.trim() !== ''),
+      medicationCount: onboardingData.medications.filter(m => m.trim() !== '').length,
       plan: onboardingData.selectedPlan,
       onboardingCompleted: true,
     };
@@ -799,14 +759,10 @@ export default function Home() {
   // Validação de step
   const canProceedToNextStep = () => {
     if (onboardingStep === 1) {
-      if (unitSystem === 'metric') {
-        return onboardingData.age && onboardingData.weight && onboardingData.height;
-      } else {
-        return onboardingData.age && onboardingData.weight && onboardingData.heightFeet && onboardingData.heightInches;
-      }
+      return onboardingData.age && onboardingData.weight && onboardingData.height;
     }
     if (onboardingStep === 2) {
-      return noMedications || onboardingData.medications.some(m => m.trim() !== '');
+      return onboardingData.medications.some(m => m.trim() !== '');
     }
     if (onboardingStep === 3) {
       return onboardingData.medicationCount;
@@ -1059,12 +1015,6 @@ export default function Home() {
     setIsUpgradeDialogOpen(false);
   };
 
-  // Handler para "Não tomo medicamentos" - pula para step 4
-  const handleNoMedications = () => {
-    setNoMedications(true);
-    setOnboardingStep(4); // Pula direto para seleção de plano
-  };
-
   // Renderizar onboarding
   if (showOnboarding) {
     return (
@@ -1087,7 +1037,7 @@ export default function Home() {
           <CardContent className="space-y-6">
             {/* Progress Bar */}
             <div className="flex items-center gap-2">
-              {[1, 2, 4].map((step) => (
+              {[1, 2, 3, 4].map((step) => (
                 <div
                   key={step}
                   className={`flex-1 h-2 rounded-full transition-all ${
@@ -1107,34 +1057,6 @@ export default function Home() {
                   <p className="text-gray-600">{t.onboarding.step1Subtitle}</p>
                 </div>
 
-                {/* Unit System Toggle */}
-                <div className="flex justify-center gap-2">
-                  <Button
-                    type="button"
-                    variant={unitSystem === 'metric' ? 'default' : 'outline'}
-                    onClick={() => setUnitSystem('metric')}
-                    className="flex-1"
-                  >
-                    {language === 'pt' ? 'Métrico (kg, cm)' :
-                     language === 'en' ? 'Metric (kg, cm)' :
-                     language === 'nl' ? 'Metrisch (kg, cm)' :
-                     language === 'fr' ? 'Métrique (kg, cm)' :
-                     'Metrisch (kg, cm)'}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant={unitSystem === 'imperial' ? 'default' : 'outline'}
-                    onClick={() => setUnitSystem('imperial')}
-                    className="flex-1"
-                  >
-                    {language === 'pt' ? 'Imperial (lbs, ft)' :
-                     language === 'en' ? 'Imperial (lbs, ft)' :
-                     language === 'nl' ? 'Imperiaal (lbs, ft)' :
-                     language === 'fr' ? 'Impérial (lbs, ft)' :
-                     'Imperial (lbs, ft)'}
-                  </Button>
-                </div>
-
                 <div className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="age" className="text-base">{t.onboarding.age}</Label>
@@ -1148,105 +1070,32 @@ export default function Home() {
                     />
                   </div>
 
-                  {unitSystem === 'metric' ? (
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="weight" className="text-base">
-                          {language === 'pt' ? 'Peso (kg)' :
-                           language === 'en' ? 'Weight (kg)' :
-                           language === 'nl' ? 'Gewicht (kg)' :
-                           language === 'fr' ? 'Poids (kg)' :
-                           'Gewicht (kg)'}
-                        </Label>
-                        <Input
-                          id="weight"
-                          type="number"
-                          step="0.1"
-                          placeholder="70"
-                          value={onboardingData.weight}
-                          onChange={(e) => setOnboardingData({ ...onboardingData, weight: e.target.value })}
-                          className="text-lg h-12"
-                        />
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label htmlFor="height" className="text-base">
-                          {language === 'pt' ? 'Altura (cm)' :
-                           language === 'en' ? 'Height (cm)' :
-                           language === 'nl' ? 'Lengte (cm)' :
-                           language === 'fr' ? 'Taille (cm)' :
-                           'Größe (cm)'}
-                        </Label>
-                        <Input
-                          id="height"
-                          type="number"
-                          placeholder="170"
-                          value={onboardingData.height}
-                          onChange={(e) => setOnboardingData({ ...onboardingData, height: e.target.value })}
-                          className="text-lg h-12"
-                        />
-                      </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="weight" className="text-base">{t.onboarding.weight}</Label>
+                      <Input
+                        id="weight"
+                        type="number"
+                        step="0.1"
+                        placeholder={t.onboarding.weightPlaceholder}
+                        value={onboardingData.weight}
+                        onChange={(e) => setOnboardingData({ ...onboardingData, weight: e.target.value })}
+                        className="text-lg h-12"
+                      />
                     </div>
-                  ) : (
-                    <div className="space-y-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="weightLbs" className="text-base">
-                          {language === 'pt' ? 'Peso (lbs)' :
-                           language === 'en' ? 'Weight (lbs)' :
-                           language === 'nl' ? 'Gewicht (lbs)' :
-                           language === 'fr' ? 'Poids (lbs)' :
-                           'Gewicht (lbs)'}
-                        </Label>
-                        <Input
-                          id="weightLbs"
-                          type="number"
-                          step="0.1"
-                          placeholder="154"
-                          value={onboardingData.weight}
-                          onChange={(e) => setOnboardingData({ ...onboardingData, weight: e.target.value })}
-                          className="text-lg h-12"
-                        />
-                      </div>
 
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label htmlFor="heightFeet" className="text-base">
-                            {language === 'pt' ? 'Altura (pés)' :
-                             language === 'en' ? 'Height (feet)' :
-                             language === 'nl' ? 'Lengte (voet)' :
-                             language === 'fr' ? 'Taille (pieds)' :
-                             'Größe (Fuß)'}
-                          </Label>
-                          <Input
-                            id="heightFeet"
-                            type="number"
-                            placeholder="5"
-                            value={onboardingData.heightFeet}
-                            onChange={(e) => setOnboardingData({ ...onboardingData, heightFeet: e.target.value })}
-                            className="text-lg h-12"
-                          />
-                        </div>
-
-                        <div className="space-y-2">
-                          <Label htmlFor="heightInches" className="text-base">
-                            {language === 'pt' ? 'Polegadas' :
-                             language === 'en' ? 'Inches' :
-                             language === 'nl' ? 'Inches' :
-                             language === 'fr' ? 'Pouces' :
-                             'Zoll'}
-                          </Label>
-                          <Input
-                            id="heightInches"
-                            type="number"
-                            placeholder="7"
-                            value={onboardingData.heightInches}
-                            onChange={(e) => setOnboardingData({ ...onboardingData, heightInches: e.target.value })}
-                            className="text-lg h-12"
-                          />
-                        </div>
-                      </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="height" className="text-base">{t.onboarding.height}</Label>
+                      <Input
+                        id="height"
+                        type="number"
+                        placeholder={t.onboarding.heightPlaceholder}
+                        value={onboardingData.height}
+                        onChange={(e) => setOnboardingData({ ...onboardingData, height: e.target.value })}
+                        className="text-lg h-12"
+                      />
                     </div>
-                  )}
+                  </div>
                 </div>
               </div>
             )}
@@ -1259,69 +1108,111 @@ export default function Home() {
                   <p className="text-gray-600">{t.onboarding.step2Subtitle}</p>
                 </div>
 
-                {/* Opção: Não tomo medicamentos */}
-                <div className="flex items-center justify-center">
+                <div className="space-y-3">
+                  {onboardingData.medications.map((med, index) => (
+                    <div key={index} className="flex gap-2">
+                      <Input
+                        placeholder={`${t.onboarding.medicationPlaceholder} ${index + 1}`}
+                        value={med}
+                        onChange={(e) => updateMedicationField(index, e.target.value)}
+                        className="text-base h-12"
+                      />
+                      {onboardingData.medications.length > 1 && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => removeMedicationField(index)}
+                          className="h-12 px-3"
+                        >
+                          ✕
+                        </Button>
+                      )}
+                    </div>
+                  ))}
+
                   <Button
                     type="button"
-                    variant={noMedications ? 'default' : 'outline'}
-                    onClick={handleNoMedications}
-                    className="w-full max-w-md"
+                    variant="outline"
+                    onClick={addMedicationField}
+                    className="w-full h-12 border-dashed"
                   >
-                    <Check className={`w-4 h-4 mr-2 ${noMedications ? 'opacity-100' : 'opacity-0'}`} />
-                    {language === 'pt' ? 'Não tomo medicamentos' :
-                     language === 'en' ? 'I don\'t take medications' :
-                     language === 'nl' ? 'Ik neem geen medicijnen' :
-                     language === 'fr' ? 'Je ne prends pas de médicaments' :
-                     'Ich nehme keine Medikamente'}
+                    <Plus className="w-4 h-4 mr-2" />
+                    {t.onboarding.addMedication}
                   </Button>
                 </div>
 
-                {!noMedications && (
-                  <>
-                    <div className="space-y-3">
-                      {onboardingData.medications.map((med, index) => (
-                        <div key={index} className="flex gap-2">
-                          <Input
-                            placeholder={`${t.onboarding.medicationPlaceholder} ${index + 1}`}
-                            value={med}
-                            onChange={(e) => updateMedicationField(index, e.target.value)}
-                            className="text-base h-12"
-                          />
-                          {onboardingData.medications.length > 1 && (
-                            <Button
-                              type="button"
-                              variant="outline"
-                              onClick={() => removeMedicationField(index)}
-                              className="h-12 px-3"
-                            >
-                              ✕
-                            </Button>
-                          )}
-                        </div>
-                      ))}
-
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={addMedicationField}
-                        className="w-full h-12 border-dashed"
-                      >
-                        <Plus className="w-4 h-4 mr-2" />
-                        {t.onboarding.addMedication}
-                      </Button>
-                    </div>
-
-                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                      <p className="text-sm text-blue-800">
-                        💡 <strong>{t.common.tip}:</strong> {t.onboarding.medicationTip}
-                      </p>
-                    </div>
-                  </>
-                )}
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <p className="text-sm text-blue-800">
+                    💡 <strong>{t.common.tip}:</strong> {t.onboarding.medicationTip}
+                  </p>
+                </div>
               </div>
             )}
 
-            {/* Step 4: Seleção de Plano (Step 3 foi removido do fluxo quando "Não tomo medicamentos") */}
+            {/* Step 3: Quantidade de Medicamentos */}
+            {onboardingStep === 3 && (
+              <div className="space-y-6 animate-in fade-in duration-500">
+                <div className="text-center space-y-2">
+                  <h3 className="text-2xl font-bold text-gray-900">
+                    {language === 'pt' ? 'Quantos medicamentos você toma?' :
+                     language === 'en' ? 'How many medications do you take?' :
+                     language === 'nl' ? 'Hoeveel medicijnen neemt u?' :
+                     language === 'fr' ? 'Combien de médicaments prenez-vous?' :
+                     'Wie viele Medikamente nehmen Sie?'}
+                  </h3>
+                  <p className="text-gray-600">
+                    {language === 'pt' ? 'Isso nos ajuda a personalizar suas recomendações' :
+                     language === 'en' ? 'This helps us personalize your recommendations' :
+                     language === 'nl' ? 'Dit helpt ons uw aanbevelingen te personaliseren' :
+                     language === 'fr' ? 'Cela nous aide à personnaliser vos recommandations' :
+                     'Dies hilft uns, Ihre Empfehlungen zu personalisieren'}
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-3 gap-4">
+                  {['1-2', '3-5', '6+'].map((range) => (
+                    <button
+                      key={range}
+                      onClick={() => setOnboardingData({ ...onboardingData, medicationCount: range })}
+                      className={`p-6 rounded-xl border-2 transition-all hover:shadow-lg ${
+                        onboardingData.medicationCount === range
+                          ? 'border-red-500 bg-red-50 shadow-lg scale-105'
+                          : 'border-gray-200 hover:border-gray-300'
+                      }`}
+                    >
+                      <div className="text-3xl mb-2">💊</div>
+                      <div className="text-2xl font-bold text-gray-900">{range}</div>
+                      <div className="text-xs text-gray-600 mt-1">
+                        {language === 'pt' ? 'medicamentos' :
+                         language === 'en' ? 'medications' :
+                         language === 'nl' ? 'medicijnen' :
+                         language === 'fr' ? 'médicaments' :
+                         'Medikamente'}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+
+                <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                  <p className="text-sm text-amber-800">
+                    ⚕️ <strong>
+                      {language === 'pt' ? 'Importante' :
+                       language === 'en' ? 'Important' :
+                       language === 'nl' ? 'Belangrijk' :
+                       language === 'fr' ? 'Important' :
+                       'Wichtig'}:
+                    </strong>{' '}
+                    {language === 'pt' ? 'Sempre consulte seu médico antes de fazer mudanças na medicação' :
+                     language === 'en' ? 'Always consult your doctor before making changes to medication' :
+                     language === 'nl' ? 'Raadpleeg altijd uw arts voordat u wijzigingen aanbrengt in medicatie' :
+                     language === 'fr' ? 'Consultez toujours votre médecin avant de modifier les médicaments' :
+                     'Konsultieren Sie immer Ihren Arzt, bevor Sie Änderungen an Medikamenten vornehmen'}
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Step 4: Seleção de Plano */}
             {onboardingStep === 4 && (
               <div className="space-y-6 animate-in fade-in duration-500">
                 <div className="text-center space-y-2">
@@ -1379,7 +1270,7 @@ export default function Home() {
                           </div>
                           <div className="text-right">
                             <div className="text-2xl font-bold text-gray-900">
-                              {plan.price === 0 ? t.common.free : `${getCurrencyInfo(userCurrency).symbol}${plan.price.toFixed(2)}`}
+                              {plan.price === 0 ? t.common.free : formatPrice(plan.price)}
                             </div>
                             <div className="text-xs text-gray-600">{plan.period}</div>
                           </div>
@@ -1417,24 +1308,10 @@ export default function Home() {
 
             {/* Navigation Buttons */}
             <div className="flex gap-3 pt-4">
-              {onboardingStep > 1 && onboardingStep !== 4 && (
+              {onboardingStep > 1 && (
                 <Button
                   variant="outline"
                   onClick={() => setOnboardingStep(onboardingStep - 1)}
-                  className="flex-1 h-12"
-                >
-                  <ChevronLeft className="w-4 h-4 mr-2" />
-                  {t.onboarding.back}
-                </Button>
-              )}
-
-              {onboardingStep === 4 && !noMedications && (
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setOnboardingStep(2);
-                    setNoMedications(false);
-                  }}
                   className="flex-1 h-12"
                 >
                   <ChevronLeft className="w-4 h-4 mr-2" />
