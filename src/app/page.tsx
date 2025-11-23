@@ -225,11 +225,7 @@ const getMedicationNotificationMessages = (language: Language): string[] => {
   return messages[language];
 };
 
-
-// --- AUTO-STABILIZED BY ChatGPT FIXER ---
 export default function Home() {
-  try {
-
   const { language, t, changeLanguage } = useLanguage();
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [onboardingStep, setOnboardingStep] = useState(1);
@@ -1471,23 +1467,1073 @@ export default function Home() {
     );
   }
 
-  // App principal (após onboarding) - código continua igual...
-  // [Resto do código permanece inalterado]
-  
-  return <div>App principal carregado</div>;
-  } catch (err) {
-    console.error("PAGE CRASH PREVENTED:", err);
-    return (
-      <div style={{
-        padding: "40px",
-        fontSize: "20px",
-        color: "red",
-        fontWeight: "bold"
-      }}>
-        Ocorreu um erro ao carregar o app.<br/>
-        Verifique o console para mais detalhes.
-      </div>
-    );
-  }
+  // App principal (após onboarding)
+  const exercises = userProfile ? getPersonalizedExercises(userProfile.weight, userProfile.age) : [];
+  const dietPlan = userProfile ? getPersonalizedDiet(userProfile.weight, userProfile.height, userProfile.age) : null;
+  const coachTips = userProfile ? getCoachTips(userProfile.weight, userProfile.age, userProfile.medicationCount) : [];
 
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-red-50 via-white to-pink-50">
+      {/* Header */}
+      <header className="bg-white border-b border-red-100 shadow-sm">
+        <div className="container mx-auto px-4 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="bg-gradient-to-br from-red-500 to-pink-600 p-2 rounded-xl">
+                <Heart className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900">{t.appName}</h1>
+                <p className="text-sm text-gray-600">{t.appTagline}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              {/* Botão de Notificações - PREMIUM */}
+              {hasFeatureAccess('notifications') && (
+                <Button
+                  onClick={requestNotificationPermission}
+                  variant={notificationsEnabled ? "default" : "outline"}
+                  size="sm"
+                  className={notificationsEnabled ? "bg-gradient-to-r from-green-500 to-emerald-600" : ""}
+                >
+                  {notificationsEnabled ? (
+                    <Bell className="w-4 h-4" />
+                  ) : (
+                    <BellOff className="w-4 h-4" />
+                  )}
+                </Button>
+              )}
+              
+              {/* Seletor de língua DISCRETO */}
+              <Select value={language} onValueChange={(value) => changeLanguage(value as Language)}>
+                <SelectTrigger className="w-[90px] h-9 text-xs border-gray-300">
+                  <Globe className="w-3 h-3 mr-1" />
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="pt">🇧🇷 PT</SelectItem>
+                  <SelectItem value="en">🇺🇸 EN</SelectItem>
+                  <SelectItem value="nl">🇳🇱 NL</SelectItem>
+                  <SelectItem value="fr">🇫🇷 FR</SelectItem>
+                  <SelectItem value="de">🇩🇪 DE</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button
+                onClick={() => setIsUpgradeDialogOpen(true)}
+                className={`bg-gradient-to-r ${PLANS.find(p => p.id === userProfile?.plan)?.color} h-9 px-3 flex items-center text-xs`}
+              >
+                {PLANS.find(p => p.id === userProfile?.plan)?.name}
+              </Button>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      {/* Dialog de Alteração de Plano */}
+      <Dialog open={isUpgradeDialogOpen} onOpenChange={setIsUpgradeDialogOpen}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle className="text-2xl">
+              {language === 'pt' ? 'Alterar Plano' :
+               language === 'en' ? 'Change Plan' :
+               language === 'nl' ? 'Plan Wijzigen' :
+               language === 'fr' ? 'Changer de Plan' :
+               'Plan Ändern'}
+            </DialogTitle>
+            <DialogDescription>
+              {language === 'pt' ? 'Escolha o plano que melhor atende suas necessidades' :
+               language === 'en' ? 'Choose the plan that best suits your needs' :
+               language === 'nl' ? 'Kies het plan dat het beste bij uw behoeften past' :
+               language === 'fr' ? 'Choisissez le plan qui correspond le mieux à vos besoins' :
+               'Wählen Sie den Plan, der Ihren Bedürfnissen am besten entspricht'}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            {PLANS.map((plan) => (
+              <div
+                key={plan.id}
+                onClick={() => handleChangePlan(plan.id)}
+                className={`relative cursor-pointer rounded-xl border-2 transition-all hover:shadow-lg ${
+                  userProfile?.plan === plan.id
+                    ? 'border-red-500 bg-red-50 shadow-lg'
+                    : 'border-gray-200 hover:border-gray-300'
+                } ${plan.highlighted ? 'ring-2 ring-purple-500 ring-offset-2' : ''}`}
+              >
+                {plan.highlighted && (
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                    <Badge className="bg-gradient-to-r from-purple-500 to-pink-600 text-white px-4">
+                      <Sparkles className="w-3 h-3 mr-1" />
+                      {t.onboarding.mostPopular}
+                    </Badge>
+                  </div>
+                )}
+
+                <div className="p-6 space-y-4">
+                  <div className="flex items-start justify-between">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        {plan.id === 'essencial' && <Shield className="w-5 h-5 text-gray-600" />}
+                        {plan.id === 'premium' && <Sparkles className="w-5 h-5 text-purple-600" />}
+                        {plan.id === 'elite' && <Crown className="w-5 h-5 text-amber-600" />}
+                        <h4 className="text-xl font-bold text-gray-900">{plan.name}</h4>
+                      </div>
+                      <p className="text-sm text-gray-600">{plan.tagline}</p>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-2xl font-bold text-gray-900">
+                        {plan.price === 0 ? t.common.free : formatPrice(plan.price)}
+                      </div>
+                      <div className="text-xs text-gray-600">{plan.period}</div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    {plan.features.map((feature, idx) => (
+                      <div key={idx} className="flex items-start gap-2 text-sm">
+                        <Check className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
+                        <span className="text-gray-700">{feature}</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  {userProfile?.plan === plan.id && (
+                    <div className="pt-2">
+                      <Badge className="bg-green-500 w-full justify-center py-2">
+                        <Check className="w-4 h-4 mr-1" />
+                        {language === 'pt' ? 'Plano Atual' :
+                         language === 'en' ? 'Current Plan' :
+                         language === 'nl' ? 'Huidig Plan' :
+                         language === 'fr' ? 'Plan Actuel' :
+                         'Aktueller Plan'}
+                      </Badge>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Main Content */}
+      <main className="container mx-auto px-4 py-6 max-w-6xl">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="grid w-full grid-cols-5 mb-6 bg-white shadow-sm h-auto">
+            <TabsTrigger value="dashboard" className="flex flex-col items-center gap-1 py-3 data-[state=active]:bg-gradient-to-br data-[state=active]:from-red-500 data-[state=active]:to-pink-600 data-[state=active]:text-white">
+              <Heart className="w-5 h-5" />
+              <span className="text-xs font-medium">{t.nav.home}</span>
+            </TabsTrigger>
+            <TabsTrigger value="medications" className="flex flex-col items-center gap-1 py-3 data-[state=active]:bg-gradient-to-br data-[state=active]:from-red-500 data-[state=active]:to-pink-600 data-[state=active]:text-white">
+              <Pill className="w-5 h-5" />
+              <span className="text-xs font-medium">{t.nav.medications}</span>
+            </TabsTrigger>
+            <TabsTrigger value="exercises" className="flex flex-col items-center gap-1 py-3 data-[state=active]:bg-gradient-to-br data-[state=active]:from-blue-500 data-[state=active]:to-cyan-600 data-[state=active]:text-white" disabled={!hasFeatureAccess('exercises')}>
+              <Activity className="w-5 h-5" />
+              <span className="text-xs font-medium">{t.nav.exercises}</span>
+            </TabsTrigger>
+            <TabsTrigger value="diet" className="flex flex-col items-center gap-1 py-3 data-[state=active]:bg-gradient-to-br data-[state=active]:from-green-500 data-[state=active]:to-emerald-600 data-[state=active]:text-white" disabled={!hasFeatureAccess('diet')}>
+              <Utensils className="w-5 h-5" />
+              <span className="text-xs font-medium">{t.nav.diet}</span>
+            </TabsTrigger>
+            <TabsTrigger value="coach" className="flex flex-col items-center gap-1 py-3 data-[state=active]:bg-gradient-to-br data-[state=active]:from-purple-500 data-[state=active]:to-pink-600 data-[state=active]:text-white" disabled={!hasFeatureAccess('coach')}>
+              <MessageCircle className="w-5 h-5" />
+              <span className="text-xs font-medium">{t.nav.coach}</span>
+            </TabsTrigger>
+          </TabsList>
+
+          {/* Dashboard */}
+          <TabsContent value="dashboard" className="space-y-6">
+            {/* Banner de Notificações - PREMIUM */}
+            {hasFeatureAccess('notifications') && !notificationsEnabled && (
+              <Card className="border-2 border-purple-200 bg-gradient-to-r from-purple-50 to-pink-50">
+                <CardContent className="flex items-center justify-between p-4">
+                  <div className="flex items-center gap-3">
+                    <Bell className="w-8 h-8 text-purple-600" />
+                    <div>
+                      <h4 className="font-semibold text-gray-900">
+                        {language === 'pt' ? 'Ative as Notificações!' :
+                         language === 'en' ? 'Enable Notifications!' :
+                         language === 'nl' ? 'Schakel Meldingen In!' :
+                         language === 'fr' ? 'Activez les Notifications!' :
+                         'Benachrichtigungen Aktivieren!'}
+                      </h4>
+                      <p className="text-sm text-gray-600">
+                        {language === 'pt' ? 'Receba lembretes personalizados quando for hora de tomar seus medicamentos' :
+                         language === 'en' ? 'Receive personalized reminders when it\'s time to take your medications' :
+                         language === 'nl' ? 'Ontvang gepersonaliseerde herinneringen wanneer het tijd is om uw medicijnen in te nemen' :
+                         language === 'fr' ? 'Recevez des rappels personnalisés lorsqu\'il est temps de prendre vos médicaments' :
+                         'Erhalten Sie personalisierte Erinnerungen, wenn es Zeit ist, Ihre Medikamente einzunehmen'}
+                      </p>
+                    </div>
+                  </div>
+                  <Button
+                    onClick={requestNotificationPermission}
+                    className="bg-gradient-to-r from-purple-500 to-pink-600"
+                  >
+                    <Bell className="w-4 h-4 mr-2" />
+                    {language === 'pt' ? 'Ativar' :
+                     language === 'en' ? 'Enable' :
+                     language === 'nl' ? 'Inschakelen' :
+                     language === 'fr' ? 'Activer' :
+                     'Aktivieren'}
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
+
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+              <Card className="bg-gradient-to-br from-red-500 to-pink-600 text-white border-0">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm font-medium flex items-center gap-2">
+                    <Pill className="w-4 h-4" />
+                    {t.dashboard.medicationsToday}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-bold">{medications.length}</div>
+                  <p className="text-xs text-red-100 mt-1">
+                    {medications.filter(m => wasTakenToday(m)).length} {t.dashboard.taken}
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-gradient-to-br from-blue-500 to-cyan-600 text-white border-0">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm font-medium flex items-center gap-2">
+                    <Activity className="w-4 h-4" />
+                    {t.dashboard.exercises}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-bold">{completedExercises.length}</div>
+                  <p className="text-xs text-blue-100 mt-1">{t.dashboard.completedToday}</p>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-gradient-to-br from-green-500 to-emerald-600 text-white border-0">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm font-medium flex items-center gap-2">
+                    <Utensils className="w-4 h-4" />
+                    {t.dashboard.caloriesGoal}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-bold">{dietPlan?.caloriasDiarias || 0}</div>
+                  <p className="text-xs text-green-100 mt-1">{t.dashboard.caloriesPerDay}</p>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-gradient-to-br from-purple-500 to-pink-600 text-white border-0">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm font-medium flex items-center gap-2">
+                    <Heart className="w-4 h-4" />
+                    {t.dashboard.bmi}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-bold">{dietPlan?.imc || 0}</div>
+                  <p className="text-xs text-purple-100 mt-1">{dietPlan?.status || t.dashboard.calculating}</p>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Próximos Remédios */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Clock className="w-5 h-5 text-red-500" />
+                  {t.dashboard.nextMedications}
+                </CardTitle>
+                <CardDescription>{t.dashboard.medicationsForToday}</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {medications.length === 0 ? (
+                  <div className="text-center py-8 text-gray-500">
+                    <Pill className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                    <p>{t.dashboard.noMedications}</p>
+                    <Button 
+                      onClick={() => setActiveTab('medications')} 
+                      className="mt-4 bg-gradient-to-r from-red-500 to-pink-600"
+                    >
+                      {t.dashboard.addFirstMedication}
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {medications.map(med => (
+                      <div 
+                        key={med.id} 
+                        className={`flex items-center justify-between p-4 rounded-lg border-2 transition-all ${
+                          wasTakenToday(med) 
+                            ? 'bg-green-50 border-green-200' 
+                            : 'bg-white border-gray-200 hover:border-red-300'
+                        }`}
+                      >
+                        <div className="flex-1">
+                          <h4 className="font-semibold text-gray-900">{med.name}</h4>
+                          <p className="text-sm text-gray-600">{med.dosage} - {med.frequency}</p>
+                          <div className="flex gap-2 mt-1">
+                            {med.times.map((time, idx) => (
+                              <Badge key={idx} variant="outline" className="text-xs">
+                                {time}
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+                        {wasTakenToday(med) ? (
+                          <Badge className="bg-green-500">
+                            <Check className="w-3 h-3 mr-1" />
+                            {t.dashboard.taken}
+                          </Badge>
+                        ) : (
+                          <Button 
+                            size="sm" 
+                            onClick={() => markAsTaken(med.id)}
+                            className="bg-gradient-to-r from-red-500 to-pink-600"
+                          >
+                            <Check className="w-4 h-4 mr-1" />
+                            {t.dashboard.mark}
+                          </Button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Medications Tab */}
+          <TabsContent value="medications" className="space-y-4">
+            <div className="flex justify-between items-center">
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900">{t.medications.title}</h2>
+                <p className="text-gray-600">{t.medications.subtitle}</p>
+              </div>
+              <Dialog open={isAddMedicationOpen} onOpenChange={setIsAddMedicationOpen}>
+                <DialogTrigger asChild>
+                  <Button className="bg-gradient-to-r from-red-500 to-pink-600">
+                    <Plus className="w-4 h-4 mr-2" />
+                    {t.medications.addMedication}
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-[500px]">
+                  <DialogHeader>
+                    <DialogTitle>{t.medications.addNew}</DialogTitle>
+                    <DialogDescription>
+                      {t.medications.fillInfo}
+                    </DialogDescription>
+                  </DialogHeader>
+                  <form onSubmit={handleAddMedication} className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="name">{t.medications.name}</Label>
+                      <Input 
+                        id="name" 
+                        name="name" 
+                        placeholder={t.medications.namePlaceholder}
+                        required 
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="dosage">{t.medications.dosage}</Label>
+                      <Input 
+                        id="dosage" 
+                        name="dosage" 
+                        placeholder={t.medications.dosagePlaceholder}
+                        required 
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="frequency">{t.medications.frequency}</Label>
+                      <Input 
+                        id="frequency" 
+                        name="frequency" 
+                        placeholder={t.medications.frequencyPlaceholder}
+                        required 
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="times">{t.medications.times}</Label>
+                      <Input 
+                        id="times" 
+                        name="times" 
+                        placeholder={t.medications.timesPlaceholder}
+                        required 
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="notes">{t.medications.notes}</Label>
+                      <Textarea 
+                        id="notes" 
+                        name="notes" 
+                        placeholder={t.medications.notesPlaceholder}
+                      />
+                    </div>
+                    <Button 
+                      type="submit" 
+                      className="w-full bg-gradient-to-r from-red-500 to-pink-600"
+                    >
+                      {t.medications.save}
+                    </Button>
+                  </form>
+                </DialogContent>
+              </Dialog>
+            </div>
+
+            {medications.length === 0 ? (
+              <Card className="border-2 border-dashed">
+                <CardContent className="flex flex-col items-center justify-center py-12">
+                  <Pill className="w-16 h-16 text-gray-300 mb-4" />
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                    {t.medications.noMedicationsYet}
+                  </h3>
+                  <p className="text-gray-600 text-center mb-4">
+                    {t.medications.noMedicationsDescription}
+                  </p>
+                  <Button 
+                    onClick={() => setIsAddMedicationOpen(true)}
+                    className="bg-gradient-to-r from-red-500 to-pink-600"
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    {t.dashboard.addFirstMedication}
+                  </Button>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="grid gap-4 md:grid-cols-2">
+                {medications.map(med => (
+                  <Card key={med.id} className="hover:shadow-lg transition-shadow">
+                    <CardHeader>
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <CardTitle className="text-xl">{med.name}</CardTitle>
+                          <CardDescription>{med.dosage}</CardDescription>
+                        </div>
+                        {wasTakenToday(med) && (
+                          <Badge className="bg-green-500">
+                            <Check className="w-3 h-3 mr-1" />
+                            {t.medications.takenToday}
+                          </Badge>
+                        )}
+                      </div>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div>
+                        <p className="text-sm font-medium text-gray-700 mb-2">{t.medications.frequency}</p>
+                        <p className="text-sm text-gray-600">{med.frequency}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-gray-700 mb-2">{t.medications.times}</p>
+                        <div className="flex flex-wrap gap-2">
+                          {med.times.map((time, idx) => (
+                            <Badge key={idx} variant="outline">
+                              <Clock className="w-3 h-3 mr-1" />
+                              {time}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                      {med.notes && (
+                        <div>
+                          <p className="text-sm font-medium text-gray-700 mb-2">{t.medications.notes}</p>
+                          <p className="text-sm text-gray-600">{med.notes}</p>
+                        </div>
+                      )}
+                      <div className="flex gap-2 pt-2">
+                        <Button 
+                          onClick={() => markAsTaken(med.id)}
+                          disabled={wasTakenToday(med)}
+                          className="flex-1 bg-gradient-to-r from-red-500 to-pink-600"
+                        >
+                          <Check className="w-4 h-4 mr-2" />
+                          {wasTakenToday(med) ? t.medications.alreadyTaken : t.medications.markAsTaken}
+                        </Button>
+                        <Button 
+                          variant="outline" 
+                          onClick={() => deleteMedication(med.id)}
+                          className="border-red-200 text-red-600 hover:bg-red-50"
+                        >
+                          {t.medications.remove}
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </TabsContent>
+
+          {/* Exercises Tab */}
+          <TabsContent value="exercises" className="space-y-6">
+            {!hasFeatureAccess('exercises') ? (
+              <Card className="border-2 border-purple-200 bg-gradient-to-br from-purple-50 to-pink-50">
+                <CardContent className="flex flex-col items-center justify-center py-12">
+                  <Crown className="w-16 h-16 text-purple-500 mb-4" />
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                    {language === 'pt' ? 'Recurso Premium' :
+                     language === 'en' ? 'Premium Feature' :
+                     language === 'nl' ? 'Premium Functie' :
+                     language === 'fr' ? 'Fonctionnalité Premium' :
+                     'Premium-Funktion'}
+                  </h3>
+                  <p className="text-gray-600 text-center mb-4">
+                    {language === 'pt' ? 'Faça upgrade para acessar exercícios personalizados' :
+                     language === 'en' ? 'Upgrade to access personalized exercises' :
+                     language === 'nl' ? 'Upgrade om toegang te krijgen tot gepersonaliseerde oefeningen' :
+                     language === 'fr' ? 'Mettez à niveau pour accéder aux exercices personnalisés' :
+                     'Upgrade für personalisierten Übungszugang'}
+                  </p>
+                  <Button 
+                    onClick={() => setIsUpgradeDialogOpen(true)}
+                    className="bg-gradient-to-r from-purple-500 to-pink-600"
+                  >
+                    <Crown className="w-4 h-4 mr-2" />
+                    {language === 'pt' ? 'Fazer Upgrade' :
+                     language === 'en' ? 'Upgrade Now' :
+                     language === 'nl' ? 'Nu Upgraden' :
+                     language === 'fr' ? 'Mettre à Niveau' :
+                     'Jetzt Upgraden'}
+                  </Button>
+                </CardContent>
+              </Card>
+            ) : (
+              <>
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-900 mb-2">{t.exercises.title}</h2>
+                  <p className="text-gray-600">{t.exercises.subtitle}</p>
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-2">
+                  {exercises.map((exercise) => (
+                    <Card key={exercise.id} className="hover:shadow-lg transition-shadow">
+                      <CardHeader>
+                        <div className="flex justify-between items-start">
+                          <div className="flex items-center gap-3">
+                            <div className="text-3xl">{exercise.icon}</div>
+                            <div>
+                              <CardTitle className="text-lg">{exercise.name}</CardTitle>
+                              <CardDescription>{exercise.description}</CardDescription>
+                            </div>
+                          </div>
+                          {exercise.recommended && (
+                            <Badge className="bg-blue-500">
+                              {t.exercises.recommended}
+                            </Badge>
+                          )}
+                        </div>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        <div className="grid grid-cols-3 gap-4 text-center">
+                          <div className="bg-blue-50 rounded-lg p-3">
+                            <Timer className="w-5 h-5 mx-auto mb-1 text-blue-600" />
+                            <div className="text-sm font-semibold text-gray-900">{exercise.duration}</div>
+                            <div className="text-xs text-gray-600">{t.exercises.duration}</div>
+                          </div>
+                          <div className="bg-orange-50 rounded-lg p-3">
+                            <Target className="w-5 h-5 mx-auto mb-1 text-orange-600" />
+                            <div className="text-sm font-semibold text-gray-900">{exercise.intensity}</div>
+                            <div className="text-xs text-gray-600">{t.exercises.intensity}</div>
+                          </div>
+                          <div className="bg-green-50 rounded-lg p-3">
+                            <Activity className="w-5 h-5 mx-auto mb-1 text-green-600" />
+                            <div className="text-sm font-semibold text-gray-900">{exercise.calories}</div>
+                            <div className="text-xs text-gray-600">{t.exercises.calories}</div>
+                          </div>
+                        </div>
+
+                        <Button
+                          onClick={() => markExerciseComplete(exercise.id)}
+                          disabled={completedExercises.includes(exercise.id)}
+                          className="w-full bg-gradient-to-r from-blue-500 to-cyan-600"
+                        >
+                          {completedExercises.includes(exercise.id) ? (
+                            <>
+                              <Check className="w-4 h-4 mr-2" />
+                              {t.exercises.completed}
+                            </>
+                          ) : (
+                            <>
+                              <Dumbbell className="w-4 h-4 mr-2" />
+                              {t.exercises.markComplete}
+                            </>
+                          )}
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </>
+            )}
+          </TabsContent>
+
+          {/* Diet Tab */}
+          <TabsContent value="diet" className="space-y-6">
+            {!hasFeatureAccess('diet') ? (
+              <Card className="border-2 border-purple-200 bg-gradient-to-br from-purple-50 to-pink-50">
+                <CardContent className="flex flex-col items-center justify-center py-12">
+                  <Crown className="w-16 h-16 text-purple-500 mb-4" />
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                    {language === 'pt' ? 'Recurso Premium' :
+                     language === 'en' ? 'Premium Feature' :
+                     language === 'nl' ? 'Premium Functie' :
+                     language === 'fr' ? 'Fonctionnalité Premium' :
+                     'Premium-Funktion'}
+                  </h3>
+                  <p className="text-gray-600 text-center mb-4">
+                    {language === 'pt' ? 'Faça upgrade para acessar plano de dieta personalizado' :
+                     language === 'en' ? 'Upgrade to access personalized diet plan' :
+                     language === 'nl' ? 'Upgrade om toegang te krijgen tot gepersonaliseerd dieetplan' :
+                     language === 'fr' ? 'Mettez à niveau pour accéder au plan alimentaire personnalisé' :
+                     'Upgrade für personalisierten Ernährungsplan'}
+                  </p>
+                  <Button 
+                    onClick={() => setIsUpgradeDialogOpen(true)}
+                    className="bg-gradient-to-r from-purple-500 to-pink-600"
+                  >
+                    <Crown className="w-4 h-4 mr-2" />
+                    {language === 'pt' ? 'Fazer Upgrade' :
+                     language === 'en' ? 'Upgrade Now' :
+                     language === 'nl' ? 'Nu Upgraden' :
+                     language === 'fr' ? 'Mettre à Niveau' :
+                     'Jetzt Upgraden'}
+                  </Button>
+                </CardContent>
+              </Card>
+            ) : (
+              <>
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-900 mb-2">{t.diet.title}</h2>
+                  <p className="text-gray-600">{t.diet.subtitle}</p>
+                </div>
+
+                {/* Cards de Estatísticas */}
+                <div className="grid gap-4 md:grid-cols-3">
+                  <Card className="bg-gradient-to-br from-green-500 to-emerald-600 text-white border-0">
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-sm font-medium flex items-center gap-2">
+                        <Target className="w-4 h-4" />
+                        {t.diet.dailyGoal}
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-3xl font-bold">{dietPlan?.caloriasDiarias}</div>
+                      <p className="text-xs text-green-100 mt-1">{t.diet.caloriesPerDay}</p>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="bg-gradient-to-br from-blue-500 to-cyan-600 text-white border-0">
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-sm font-medium flex items-center gap-2">
+                        <Activity className="w-4 h-4" />
+                        {t.diet.yourBMI}
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-3xl font-bold">{dietPlan?.imc}</div>
+                      <p className="text-xs text-blue-100 mt-1">{dietPlan?.status}</p>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="bg-gradient-to-br from-purple-500 to-pink-600 text-white border-0">
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-sm font-medium flex items-center gap-2">
+                        <Utensils className="w-4 h-4" />
+                        {t.diet.meals}
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-3xl font-bold">5-6</div>
+                      <p className="text-xs text-purple-100 mt-1">{t.diet.mealsPerDay}</p>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* Analisador de Refeições - PREMIUM */}
+                {hasFeatureAccess('mealAnalysis') && (
+                  <Card className="border-2 border-purple-200 bg-gradient-to-br from-purple-50 to-pink-50">
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Sparkles className="w-5 h-5 text-purple-600" />
+                        {language === 'pt' ? 'Analisador de Refeições AI' : 
+                         language === 'en' ? 'AI Meal Analyzer' :
+                         language === 'nl' ? 'AI Maaltijdanalyse' :
+                         language === 'fr' ? 'Analyseur de Repas IA' :
+                         'KI-Mahlzeitenanalyse'}
+                        <Badge className="bg-gradient-to-r from-purple-500 to-pink-600 text-white">
+                          Premium
+                        </Badge>
+                      </CardTitle>
+                      <CardDescription>
+                        {language === 'pt' ? 'Descreva o que você comeu e receba uma análise completa da sua refeição' :
+                         language === 'en' ? 'Describe what you ate and receive a complete analysis of your meal' :
+                         language === 'nl' ? 'Beschrijf wat je hebt gegeten en ontvang een volledige analyse van je maaltijd' :
+                         language === 'fr' ? 'Décrivez ce que vous avez mangé et recevez une analyse complète de votre repas' :
+                         'Beschreiben Sie, was Sie gegessen haben, und erhalten Sie eine vollständige Analyse Ihrer Mahlzeit'}
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="flex gap-2">
+                        <Textarea
+                          placeholder={language === 'pt' ? 'Ex: Arroz, feijão, frango grelhado e salada...' :
+                                     language === 'en' ? 'Ex: Rice, beans, grilled chicken and salad...' :
+                                     language === 'nl' ? 'Bijv: Rijst, bonen, gegrilde kip en salade...' :
+                                     language === 'fr' ? 'Ex: Riz, haricots, poulet grillé et salade...' :
+                                     'Z.B: Reis, Bohnen, gegrilltes Hähnchen und Salat...'}
+                          value={mealDescription}
+                          onChange={(e) => setMealDescription(e.target.value)}
+                          className="flex-1 min-h-[100px]"
+                        />
+                      </div>
+                      <Button
+                        onClick={handleMealAnalysis}
+                        disabled={!mealDescription.trim() || isAnalyzing}
+                        className="w-full bg-gradient-to-r from-purple-500 to-pink-600"
+                      >
+                        {isAnalyzing ? (
+                          <>
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
+                            {language === 'pt' ? 'Analisando...' :
+                             language === 'en' ? 'Analyzing...' :
+                             language === 'nl' ? 'Analyseren...' :
+                             language === 'fr' ? 'Analyse...' :
+                             'Analysieren...'}
+                          </>
+                        ) : (
+                          <>
+                            <Sparkles className="w-4 h-4 mr-2" />
+                            {language === 'pt' ? 'Analisar Refeição' :
+                             language === 'en' ? 'Analyze Meal' :
+                             language === 'nl' ? 'Maaltijd Analyseren' :
+                             language === 'fr' ? 'Analyser le Repas' :
+                             'Mahlzeit Analysieren'}
+                          </>
+                        )}
+                      </Button>
+
+                      {/* Histórico de Análises */}
+                      {mealAnalyses.length > 0 && (
+                        <div className="space-y-3 mt-6">
+                          <h4 className="font-semibold text-gray-900">
+                            {language === 'pt' ? 'Análises Recentes' :
+                             language === 'en' ? 'Recent Analyses' :
+                             language === 'nl' ? 'Recente Analyses' :
+                             language === 'fr' ? 'Analyses Récentes' :
+                             'Neueste Analysen'}
+                          </h4>
+                          {mealAnalyses.map((analysis) => (
+                            <Card key={analysis.id} className="border-2 border-gray-200">
+                              <CardHeader className="pb-3">
+                                <div className="flex justify-between items-start">
+                                  <div className="flex-1">
+                                    <CardTitle className="text-base">{analysis.mealDescription}</CardTitle>
+                                    <CardDescription className="text-xs">
+                                      {new Date(analysis.timestamp).toLocaleDateString(language)}
+                                    </CardDescription>
+                                  </div>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => handleDeleteMealAnalysis(analysis.id)}
+                                    className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </Button>
+                                </div>
+                              </CardHeader>
+                              <CardContent className="space-y-4">
+                                {/* Score Visual */}
+                                <div className="flex items-center gap-4">
+                                  <div className="relative w-20 h-20">
+                                    <svg className="w-20 h-20 transform -rotate-90">
+                                      <circle
+                                        cx="40"
+                                        cy="40"
+                                        r="32"
+                                        stroke="#e5e7eb"
+                                        strokeWidth="8"
+                                        fill="none"
+                                      />
+                                      <circle
+                                        cx="40"
+                                        cy="40"
+                                        r="32"
+                                        stroke={analysis.score >= 80 ? '#10b981' : analysis.score >= 60 ? '#f59e0b' : '#ef4444'}
+                                        strokeWidth="8"
+                                        fill="none"
+                                        strokeDasharray={`${(analysis.score / 100) * 201} 201`}
+                                        strokeLinecap="round"
+                                      />
+                                    </svg>
+                                    <div className="absolute inset-0 flex items-center justify-center">
+                                      <span className="text-xl font-bold text-gray-900">{analysis.score}</span>
+                                    </div>
+                                  </div>
+                                  <div className="flex-1">
+                                    <div className="flex items-center gap-2 mb-1">
+                                      <Star className={`w-5 h-5 ${analysis.score >= 80 ? 'text-green-500' : analysis.score >= 60 ? 'text-amber-500' : 'text-red-500'}`} />
+                                      <span className="font-semibold text-gray-900">
+                                        {analysis.score >= 80 ? (language === 'pt' ? 'Excelente!' : language === 'en' ? 'Excellent!' : language === 'nl' ? 'Uitstekend!' : language === 'fr' ? 'Excellent!' : 'Ausgezeichnet!') :
+                                         analysis.score >= 60 ? (language === 'pt' ? 'Bom' : language === 'en' ? 'Good' : language === 'nl' ? 'Goed' : language === 'fr' ? 'Bon' : 'Gut') :
+                                         (language === 'pt' ? 'Pode Melhorar' : language === 'en' ? 'Can Improve' : language === 'nl' ? 'Kan Verbeteren' : language === 'fr' ? 'Peut Améliorer' : 'Kann Verbessern')}
+                                      </span>
+                                    </div>
+                                    <p className="text-sm text-gray-600">
+                                      {language === 'pt' ? `~${analysis.estimatedCalories} calorias` :
+                                       language === 'en' ? `~${analysis.estimatedCalories} calories` :
+                                       language === 'nl' ? `~${analysis.estimatedCalories} calorieën` :
+                                       language === 'fr' ? `~${analysis.estimatedCalories} calories` :
+                                       `~${analysis.estimatedCalories} Kalorien`}
+                                    </p>
+                                  </div>
+                                </div>
+
+                                {/* Pontos Positivos */}
+                                <div className="space-y-2">
+                                  <h5 className="text-sm font-semibold text-green-700 flex items-center gap-1">
+                                    <TrendingUp className="w-4 h-4" />
+                                    {language === 'pt' ? 'Pontos Positivos' :
+                                     language === 'en' ? 'Positive Points' :
+                                     language === 'nl' ? 'Positieve Punten' :
+                                     language === 'fr' ? 'Points Positifs' :
+                                     'Positive Punkte'}
+                                  </h5>
+                                  <ul className="space-y-1">
+                                    {analysis.positivePoints.map((point, idx) => (
+                                      <li key={idx} className="text-sm text-gray-700 flex items-start gap-2">
+                                        <Check className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
+                                        <span>{point}</span>
+                                      </li>
+                                    ))}
+                                  </ul>
+                                </div>
+
+                                {/* Melhorias */}
+                                <div className="space-y-2">
+                                  <h5 className="text-sm font-semibold text-amber-700 flex items-center gap-1">
+                                    <TrendingDown className="w-4 h-4" />
+                                    {language === 'pt' ? 'Pode Melhorar' :
+                                     language === 'en' ? 'Can Improve' :
+                                     language === 'nl' ? 'Kan Verbeteren' :
+                                     language === 'fr' ? 'Peut Améliorer' :
+                                     'Kann Verbessern'}
+                                  </h5>
+                                  <ul className="space-y-1">
+                                    {analysis.improvements.map((improvement, idx) => (
+                                      <li key={idx} className="text-sm text-gray-700 flex items-start gap-2">
+                                        <Minus className="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0" />
+                                        <span>{improvement}</span>
+                                      </li>
+                                    ))}
+                                  </ul>
+                                </div>
+
+                                {/* Recomendações */}
+                                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                                  <h5 className="text-sm font-semibold text-blue-900 mb-2">
+                                    💡 {language === 'pt' ? 'Recomendações' :
+                                        language === 'en' ? 'Recommendations' :
+                                        language === 'nl' ? 'Aanbevelingen' :
+                                        language === 'fr' ? 'Recommandations' :
+                                        'Empfehlungen'}
+                                  </h5>
+                                  <ul className="space-y-1">
+                                    {analysis.recommendations.map((rec, idx) => (
+                                      <li key={idx} className="text-xs text-blue-800">• {rec}</li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              </CardContent>
+                            </Card>
+                          ))}
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Recomendações de Refeições */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Apple className="w-5 h-5 text-green-600" />
+                      {t.diet.recommendations}
+                    </CardTitle>
+                    <CardDescription>{t.diet.recommendationsSubtitle}</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="space-y-3">
+                      {[
+                        { icon: '🥗', title: t.diet.breakfast, desc: t.diet.breakfastDesc },
+                        { icon: '🍎', title: t.diet.morningSnack, desc: t.diet.morningSnackDesc },
+                        { icon: '🍗', title: t.diet.lunch, desc: t.diet.lunchDesc },
+                        { icon: '🥤', title: t.diet.afternoonSnack, desc: t.diet.afternoonSnackDesc },
+                        { icon: '🐟', title: t.diet.dinner, desc: t.diet.dinnerDesc },
+                      ].map((meal, idx) => (
+                        <div key={idx} className="flex gap-4 p-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg border border-green-200">
+                          <div className="text-3xl">{meal.icon}</div>
+                          <div className="flex-1">
+                            <h4 className="font-semibold text-gray-900 mb-1">{meal.title}</h4>
+                            <p className="text-sm text-gray-600">{meal.desc}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-6">
+                      <p className="text-sm text-blue-800">
+                        💧 <strong>{t.diet.hydration}:</strong> {t.diet.hydrationTip}
+                      </p>
+                    </div>
+                  </CardContent>
+                </Card>
+              </>
+            )}
+          </TabsContent>
+
+          {/* Coach Tab - SISTEMA INTELIGENTE MELHORADO */}
+          <TabsContent value="coach" className="space-y-6">
+            {!hasFeatureAccess('coach') ? (
+              <Card className="border-2 border-purple-200 bg-gradient-to-br from-purple-50 to-pink-50">
+                <CardContent className="flex flex-col items-center justify-center py-12">
+                  <Crown className="w-16 h-16 text-purple-500 mb-4" />
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                    {language === 'pt' ? 'Recurso Premium' :
+                     language === 'en' ? 'Premium Feature' :
+                     language === 'nl' ? 'Premium Functie' :
+                     language === 'fr' ? 'Fonctionnalité Premium' :
+                     'Premium-Funktion'}
+                  </h3>
+                  <p className="text-gray-600 text-center mb-4">
+                    {language === 'pt' ? 'Faça upgrade para conversar com seu Coach AI' :
+                     language === 'en' ? 'Upgrade to chat with your AI Coach' :
+                     language === 'nl' ? 'Upgrade om te chatten met uw AI Coach' :
+                     language === 'fr' ? 'Mettez à niveau pour discuter avec votre Coach IA' :
+                     'Upgrade um mit Ihrem KI-Coach zu chatten'}
+                  </p>
+                  <Button 
+                    onClick={() => setIsUpgradeDialogOpen(true)}
+                    className="bg-gradient-to-r from-purple-500 to-pink-600"
+                  >
+                    <Crown className="w-4 h-4 mr-2" />
+                    {language === 'pt' ? 'Fazer Upgrade' :
+                     language === 'en' ? 'Upgrade Now' :
+                     language === 'nl' ? 'Nu Upgraden' :
+                     language === 'fr' ? 'Mettre à Niveau' :
+                     'Jetzt Upgraden'}
+                  </Button>
+                </CardContent>
+              </Card>
+            ) : (
+              <>
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-900 mb-2">{t.coach.title}</h2>
+                  <p className="text-gray-600">{t.coach.subtitle}</p>
+                </div>
+
+                {/* DICAS DO COACH */}
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                  {coachTips.map((tip) => (
+                    <Card key={tip.id} className="hover:shadow-lg transition-shadow border-2 border-purple-100">
+                      <CardHeader className="pb-3">
+                        <CardTitle className="text-base flex items-center gap-2">
+                          <span className="text-2xl">{tip.categoria.split(' ')[0]}</span>
+                          <span className="text-gray-900">{tip.categoria.split(' ').slice(1).join(' ')}</span>
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-3">
+                        <div>
+                          <h4 className="font-bold text-gray-900 mb-2 text-sm">{tip.titulo}</h4>
+                          <p className="text-sm text-gray-600 leading-relaxed">{tip.mensagem}</p>
+                        </div>
+                        <div className="pt-3 border-t border-purple-100 bg-purple-50 rounded-lg p-3 -mx-3">
+                          <p className="text-xs font-medium text-purple-900">
+                            <span className="text-base mr-1">💡</span>
+                            <strong>
+                              {language === 'pt' ? 'Dica' :
+                               language === 'en' ? 'Tip' :
+                               language === 'nl' ? 'Tip' :
+                               language === 'fr' ? 'Conseil' :
+                               'Tipp'}:
+                            </strong> {tip.dica}
+                          </p>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <MessageCircle className="w-5 h-5 text-purple-600" />
+                      {t.coach.chatTitle}
+                    </CardTitle>
+                    <CardDescription>{t.coach.chatSubtitle}</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="h-[400px] overflow-y-auto space-y-3 p-4 bg-gray-50 rounded-lg">
+                      {chatHistory.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center h-full text-gray-400">
+                          <MessageCircle className="w-12 h-12 mb-3" />
+                          <p className="text-sm">{t.coach.startConversation}</p>
+                        </div>
+                      ) : (
+                        <>
+                          {chatHistory.map((msg, idx) => (
+                            <div
+                              key={idx}
+                              className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                            >
+                              <div
+                                className={`max-w-[80%] p-3 rounded-lg ${
+                                  msg.role === 'user'
+                                    ? 'bg-gradient-to-r from-purple-500 to-pink-600 text-white'
+                                    : 'bg-white border border-gray-200 text-gray-900'
+                                }`}
+                              >
+                                <p className="text-sm">{msg.message}</p>
+                              </div>
+                            </div>
+                          ))}
+                          {isCoachTyping && (
+                            <div className="flex justify-start">
+                              <div className="bg-white border border-gray-200 text-gray-900 p-3 rounded-lg">
+                                <div className="flex gap-1">
+                                  <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                                  <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                                  <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </div>
+
+                    <form onSubmit={handleCoachMessage} className="flex gap-2">
+                      <Input
+                        value={coachMessage}
+                        onChange={(e) => setCoachMessage(e.target.value)}
+                        placeholder={t.coach.messagePlaceholder}
+                        className="flex-1"
+                        disabled={isCoachTyping}
+                      />
+                      <Button
+                        type="submit"
+                        disabled={!coachMessage.trim() || isCoachTyping}
+                        className="bg-gradient-to-r from-purple-500 to-pink-600"
+                      >
+                        <Send className="w-4 h-4" />
+                      </Button>
+                    </form>
+                  </CardContent>
+                </Card>
+              </>
+            )}
+          </TabsContent>
+        </Tabs>
+      </main>
+    </div>
+  );
 }
